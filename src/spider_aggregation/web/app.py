@@ -1022,6 +1022,7 @@ def create_app(
 
         with db_manager.session() as session:
             from spider_aggregation.storage.repositories.feed_repo import FeedRepository
+            from spider_aggregation.storage.repositories.entry_repo import EntryRepository
             from spider_aggregation.core import create_fetcher, create_parser, create_deduplicator
             from spider_aggregation.models.entry import EntryCreate
 
