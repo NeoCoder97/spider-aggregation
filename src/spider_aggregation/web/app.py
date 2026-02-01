@@ -331,9 +331,12 @@ def create_app(
             feed_repo = FeedRepository(session)
             feeds = feed_repo.list(limit=1000)
 
+            # Convert to dict inside session to avoid DetachedInstanceError
+            data = [feed_to_dict(f) for f in feeds]
+
         return api_response(
             success=True,
-            data=[feed_to_dict(f) for f in feeds],
+            data=data,
         )
 
     @app.route("/api/feeds/<int:feed_id>", methods=["GET"])
@@ -350,7 +353,10 @@ def create_app(
             if not feed:
                 return api_response(success=False, error="未找到订阅源", status=404)
 
-        return api_response(success=True, data=feed_to_dict(feed))
+            # Convert to dict inside session to avoid DetachedInstanceError
+            data = feed_to_dict(feed)
+
+        return api_response(success=True, data=data)
 
     @app.route("/api/feeds", methods=["POST"])
     def api_feed_create():
@@ -455,7 +461,10 @@ def create_app(
             # Refresh to get updated state
             session.refresh(feed)
 
-        return api_response(success=True, data=feed_to_dict(feed), message=message)
+            # Convert to dict inside session to avoid DetachedInstanceError
+            data = feed_to_dict(feed)
+
+        return api_response(success=True, data=data, message=message)
 
     @app.route("/api/feeds/<int:feed_id>/fetch", methods=["POST"])
     def api_feed_fetch(feed_id: int):
@@ -471,13 +480,16 @@ def create_app(
             if not feed:
                 return api_response(success=False, error="未找到订阅源", status=404)
 
-            # This is a placeholder - actual fetch would be triggered by scheduler
-            # For now, just mark as attempted
-            return api_response(
-                success=True,
-                message="已将抓取任务加入队列（请使用调度器或手动抓取）",
-                data=feed_to_dict(feed),
-            )
+            # Convert to dict inside session to avoid DetachedInstanceError
+            data = feed_to_dict(feed)
+
+        # This is a placeholder - actual fetch would be triggered by scheduler
+        # For now, just mark as attempted
+        return api_response(
+            success=True,
+            message="已将抓取任务加入队列（请使用调度器或手动抓取）",
+            data=data,
+        )
 
     # ========================================================================
     # Entry Management APIs
@@ -497,7 +509,10 @@ def create_app(
             if not entry:
                 return api_response(success=False, error="未找到文章", status=404)
 
-        return api_response(success=True, data=entry_to_dict(entry))
+            # Convert to dict inside session to avoid DetachedInstanceError
+            data = entry_to_dict(entry)
+
+        return api_response(success=True, data=data)
 
     @app.route("/api/entries/<int:entry_id>", methods=["DELETE"])
     def api_entry_delete(entry_id: int):
@@ -874,9 +889,12 @@ def create_app(
                 order_desc=True,
             )
 
+            # Convert to dict inside session to avoid DetachedInstanceError
+            data = [entry_to_dict(e) for e in entries]
+
         return api_response(
             success=True,
-            data=[entry_to_dict(e) for e in entries],
+            data=data,
         )
 
     @app.route("/api/dashboard/feed-health", methods=["GET"])
@@ -923,18 +941,19 @@ def create_app(
             feed_repo = FeedRepository(session)
             feeds = [f for f in feed_repo.list() if f.enabled]
 
-        status = {
-            "is_running": is_running,
-            "enabled_feeds_count": len(feeds),
-            "feeds": [
-                {
-                    "id": f.id,
-                    "name": f.name,
-                    "interval_minutes": f.fetch_interval_minutes,
-                }
-                for f in feeds
-            ],
-        }
+            # Convert to dict inside session to avoid DetachedInstanceError
+            status = {
+                "is_running": is_running,
+                "enabled_feeds_count": len(feeds),
+                "feeds": [
+                    {
+                        "id": f.id,
+                        "name": f.name,
+                        "interval_minutes": f.fetch_interval_minutes,
+                    }
+                    for f in feeds
+                ],
+            }
 
         return api_response(success=True, data=status)
 
@@ -1131,7 +1150,8 @@ def create_app(
                 order_desc=True,
             )
 
-        data = [entry_to_dict(e) for e in entries]
+            # Convert to dict inside session to avoid DetachedInstanceError
+            data = [entry_to_dict(e) for e in entries]
 
         response = jsonify(data)
         response.headers["Content-Disposition"] = "attachment; filename=entries.json"
@@ -1149,7 +1169,8 @@ def create_app(
             feed_repo = FeedRepository(session)
             feeds = feed_repo.list(limit=1000)
 
-        data = [feed_to_dict(f) for f in feeds]
+            # Convert to dict inside session to avoid DetachedInstanceError
+            data = [feed_to_dict(f) for f in feeds]
 
         response = jsonify(data)
         response.headers["Content-Disposition"] = "attachment; filename=feeds.json"
