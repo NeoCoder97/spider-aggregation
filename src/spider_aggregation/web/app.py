@@ -931,7 +931,7 @@ def create_app(
         global _scheduler_instance
 
         with _scheduler_lock:
-            is_running = _scheduler_instance is not None and _scheduler_instance.is_running
+            is_running = _scheduler_instance is not None and _scheduler_instance.is_running()
 
         db_manager = DatabaseManager(db_path)
 
@@ -963,7 +963,7 @@ def create_app(
         global _scheduler_instance
 
         with _scheduler_lock:
-            if _scheduler_instance is not None and _scheduler_instance.is_running:
+            if _scheduler_instance is not None and _scheduler_instance.is_running():
                 return api_response(success=False, error="调度器正在运行", status=400)
 
             try:
@@ -1001,7 +1001,7 @@ def create_app(
         global _scheduler_instance
 
         with _scheduler_lock:
-            if _scheduler_instance is None or not _scheduler_instance.is_running:
+            if _scheduler_instance is None or not _scheduler_instance.is_running():
                 return api_response(success=False, error="调度器未运行", status=400)
 
             try:
