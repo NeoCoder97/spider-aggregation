@@ -263,6 +263,17 @@ async function loadSchedulerStatus() {
 }
 
 async function startScheduler() {
+    const btnStart = document.getElementById('btn-start-scheduler');
+    const btnStop = document.getElementById('btn-stop-scheduler');
+    const indicator = document.getElementById('scheduler-indicator');
+    const statusText = document.getElementById('scheduler-status-text');
+
+    // 立即更新 UI 状态
+    btnStart.disabled = true;
+    btnStart.textContent = '启动中...';
+    indicator.className = 'status-indicator status-pending';
+    statusText.textContent = 'Starting...';
+
     App.showToast('正在启动调度器...', 'info');
 
     try {
@@ -272,10 +283,20 @@ async function startScheduler() {
             App.showToast('调度器启动成功', 'success');
             await loadSchedulerStatus();
         } else {
+            // 启动失败，恢复状态
+            btnStart.disabled = false;
+            btnStart.textContent = '启动调度器';
+            indicator.className = 'status-indicator status-stopped';
+            statusText.textContent = 'Start failed';
             App.showToast(response.error || '启动调度器失败', 'error');
         }
     } catch (error) {
         console.error('启动调度器错误:', error);
+        // 恢复状态
+        btnStart.disabled = false;
+        btnStart.textContent = '启动调度器';
+        indicator.className = 'status-indicator status-stopped';
+        statusText.textContent = 'Error';
         App.showToast('启动调度器失败', 'error');
     }
 }
@@ -284,6 +305,17 @@ async function stopScheduler() {
     App.modal.confirm(
         '确定要停止调度器吗？订阅源将不再自动抓取。',
         async () => {
+            const btnStart = document.getElementById('btn-start-scheduler');
+            const btnStop = document.getElementById('btn-stop-scheduler');
+            const indicator = document.getElementById('scheduler-indicator');
+            const statusText = document.getElementById('scheduler-status-text');
+
+            // 立即更新 UI 状态
+            btnStop.disabled = true;
+            btnStop.textContent = '停止中...';
+            indicator.className = 'status-indicator status-pending';
+            statusText.textContent = 'Stopping...';
+
             App.showToast('正在停止调度器...', 'info');
 
             try {
@@ -293,10 +325,20 @@ async function stopScheduler() {
                     App.showToast('调度器已停止', 'success');
                     await loadSchedulerStatus();
                 } else {
+                    // 停止失败，恢复状态
+                    btnStop.disabled = false;
+                    btnStop.textContent = '停止调度器';
+                    indicator.className = 'status-indicator status-running';
+                    statusText.textContent = 'Stop failed';
                     App.showToast(response.error || '停止调度器失败', 'error');
                 }
             } catch (error) {
                 console.error('停止调度器错误:', error);
+                // 恢复状态
+                btnStop.disabled = false;
+                btnStop.textContent = '停止调度器';
+                indicator.className = 'status-indicator status-running';
+                statusText.textContent = 'Error';
                 App.showToast('停止调度器失败', 'error');
             }
         },

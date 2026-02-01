@@ -873,6 +873,11 @@ textarea.form-control {
     background-color: var(--error-color);
 }
 
+.status-indicator.status-pending {
+    background-color: var(--warning-color);
+    animation: pulse 1s ease-in-out infinite;
+}
+
 @keyframes pulse {
     0%, 100% {
         opacity: 1;
