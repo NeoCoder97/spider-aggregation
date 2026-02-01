@@ -17,6 +17,12 @@ from spider_aggregation.core.parser import (
     FeedMetadataParser,
     create_parser,
 )
+from spider_aggregation.core.scheduler import (
+    FeedScheduler,
+    JobStatus,
+    SchedulerStats,
+    create_scheduler,
+)
 
 __all__ = [
     "FeedFetcher",
@@ -30,4 +36,8 @@ __all__ = [
     "DedupStrategy",
     "DedupResult",
     "create_deduplicator",
+    "FeedScheduler",
+    "JobStatus",
+    "SchedulerStats",
+    "create_scheduler",
 ]
