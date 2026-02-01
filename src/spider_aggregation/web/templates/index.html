@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}文章列表 - Spider Aggregation{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>文章列表</h2>
+    <div class="stats">
+        <span>总计: {{ total }}</span>
+    </div>
+</div>
+
+<div class="filters">
+    <form method="get" class="filter-form">
+        <select name="feed_id" class="filter-select">
+            <option value="">全部订阅源</option>
+            {% for feed in feeds %}
+            <option value="{{ feed.id }}" {% if feed_id == feed.id %}selected{% endif %}>
+                {{ feed.name }}
+            </option>
+            {% endfor %}
+        </select>
+
+        <input type="text" name="q" placeholder="搜索..." value="{{ search_query }}" class="search-input">
+
+        <button type="submit" class="btn btn-primary">筛选</button>
+        {% if feed_id or search_query %}
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">清除</a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Batch Operations Toolbar -->
+<div class="batch-toolbar">
+    <label class="batch-toolbar-label">
+        <input type="checkbox" onchange="toggleSelectAll(this)">
+        全选
+    </label>
+    <div class="batch-actions">
+        <button type="button" class="btn btn-small btn-secondary" onclick="batchFetchContent()" title="为选中的文章提取完整内容">
+            📄 提取内容
+        </button>
+        <button type="button" class="btn btn-small btn-secondary" onclick="batchExtractKeywords()" title="为选中的文章提取关键词">
+            🏷️ 提取关键词
+        </button>
+        <button type="button" class="btn btn-small btn-secondary" onclick="batchSummarize()" title="为选中的文章生成摘要">
+            📝 生成摘要
+        </button>
+        <button type="button" class="btn btn-small btn-danger" onclick="batchDeleteEntries()" title="删除选中的文章">
+            🗑️ 删除
+        </button>
+    </div>
+</div>
+
+<div class="entries-list">
+    {% for entry in entries %}
+    <article class="entry-card">
+        <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
+            <input type="checkbox" class="entry-checkbox" value="{{ entry.id }}" style="margin-top: 0.5rem;">
+            <div style="flex: 1;">
+                <h3 class="entry-title">
+                    <a href="{{ url_for('entry_detail', entry_id=entry.id) }}">{{ entry.title }}</a>
+                </h3>
+                <div class="entry-meta">
+                    {% if entry.author %}
+                    <span class="entry-author">{{ entry.author }}</span>
+                    {% endif %}
+                    {% if entry.published_at %}
+                    <span class="entry-date">{{ entry.published_at|format_datetime }}</span>
+                    {% endif %}
+                    {% if entry.language %}
+                    <span class="badge badge-secondary">{{ entry.language.upper() }}</span>
+                    {% endif %}
+                </div>
+                {% if entry.summary %}
+                <p class="entry-summary">{{ entry.summary[:300] }}{% if entry.summary|length > 300 %}...{% endif %}</p>
+                {% elif entry.content %}
+                <p class="entry-summary">{{ entry.content[:300] }}{% if entry.content|length > 300 %}...{% endif %}</p>
+                {% endif %}
+                {% if entry.tags_list %}
+                <div class="entry-tags">
+                    {% for tag in entry.tags_list[:5] %}
+                    <span class="tag">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <div class="entry-actions">
+                    <a href="{{ entry.link }}" target="_blank" rel="noopener" class="btn btn-small">查看原文</a>
+                    <a href="{{ url_for('entry_detail', entry_id=entry.id) }}" class="btn btn-small btn-secondary">详情</a>
+                </div>
+            </div>
+        </div>
+    </article>
+    {% else %}
+    <div class="empty-state">
+        <p>暂无文章</p>
+    </div>
+    {% endfor %}
+</div>
+
+{% if total > page_size %}
+<div class="pagination">
+    {% if page > 1 %}
+    <a href="?page={{ page - 1 }}&feed_id={{ feed_id or '' }}&q={{ search_query }}" class="btn">上一页</a>
+    {% endif %}
+
+    <span class="pagination-info">第 {{ page }} 页</span>
+
+    {% if page * page_size < total %}
+    <a href="?page={{ page + 1 }}&feed_id={{ feed_id or '' }}&q={{ search_query }}" class="btn">下一页</a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/forms.js') }}"></script>
+{% endblock %}
