@@ -7,6 +7,10 @@ from spider_aggregation.models.entry import (
     EntryResponse,
     EntryUpdate,
     FilterRuleModel,
+    FilterRuleCreate,
+    FilterRuleUpdate,
+    FilterRuleResponse,
+    FilterRuleListResponse,
 )
 from spider_aggregation.models.feed import (
     Base,
@@ -30,4 +34,8 @@ __all__ = [
     "EntryResponse",
     "EntryListResponse",
     "FilterRuleModel",
+    "FilterRuleCreate",
+    "FilterRuleUpdate",
+    "FilterRuleResponse",
+    "FilterRuleListResponse",
 ]
