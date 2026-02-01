@@ -174,6 +174,44 @@ class FeedFetcher:
                 parsed = feedparser.parse(http_result.content)
                 entries = parsed.get("entries", [])
 
+                # Apply max entries limit from feed settings
+                # Handle None case and treat 0 as no limit
+                max_entries = None
+                if feed.max_entries_per_fetch is not None and feed.max_entries_per_fetch > 0:
+                    max_entries = feed.max_entries_per_fetch
+
+                if max_entries and len(entries) > max_entries:
+                    original_count = len(entries)
+                    entries = entries[:max_entries]
+                    logger.info(f"Limited feed {feed_url} to {len(entries)} entries (original: {original_count})")
+
+                # Apply date filter if feed.fetch_only_recent is enabled
+                if feed.fetch_only_recent:
+                    config = get_config()
+                    recent_days = config.fetcher.fetch_recent_days
+                    if recent_days > 0:
+                        from datetime import datetime, timedelta
+                        cutoff_date = datetime.utcnow() - timedelta(days=recent_days)
+                        original_count = len(entries)
+
+                        # Filter entries that have published/updated dates within the recent period
+                        filtered_entries = []
+                        for e in entries:
+                            # Try to get a date from the entry
+                            entry_date = None
+                            if e.get('published_parsed'):
+                                entry_date = datetime(*e['published_parsed'][:6])
+                            elif e.get('updated_parsed'):
+                                entry_date = datetime(*e['updated_parsed'][:6])
+
+                            # Keep entry if it has a valid date within the recent period, or if no date is available
+                            if entry_date is None or entry_date >= cutoff_date:
+                                filtered_entries.append(e)
+
+                        entries = filtered_entries
+                        if len(entries) < original_count:
+                            logger.info(f"Filtered {original_count - len(entries)} old entries from {feed_url} (older than {recent_days} days)")
+
                 # Get feed info
                 feed_info = {
                     "title": parsed.feed.get("title"),

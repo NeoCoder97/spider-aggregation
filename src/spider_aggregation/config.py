@@ -82,6 +82,16 @@ class FetcherConfig(BaseSettings):
     follow_redirects: bool = Field(default=True)
     max_redirects: int = Field(default=5, ge=0, le=20)
 
+    # Feed entry limits
+    max_entries_per_feed: int = Field(
+        default=0, ge=0, le=1000,
+        description="Max entries to fetch per feed (0=unlimited)"
+    )
+    fetch_recent_days: int = Field(
+        default=30, ge=0, le=365,
+        description="Only fetch entries from last N days (0=unlimited)"
+    )
+
 
 class DeduplicatorConfig(BaseSettings):
     """Deduplication configuration."""

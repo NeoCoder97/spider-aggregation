@@ -2,6 +2,8 @@
 
 <div align="center">
 
+<img src="docs/logo.svg" alt="MindWeaver Logo" width="50"/>
+
 **汇聚信息，提炼洞察**
 
 *个人知识/研究动态监测工具*

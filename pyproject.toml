@@ -1,5 +1,5 @@
 [project]
-name = "spider-aggregation"
+name = "mind-weaver"
 version = "0.3.0"
 description = "Personal knowledge/research dynamic monitoring tool"
 readme = "README.md"
@@ -34,11 +34,14 @@ ai = [
 ]
 
 [project.scripts]
-spider-aggregation = "spider_aggregation.web.__main__:main"
+mind-weaver = "spider_aggregation.web.__main__:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/spider_aggregation"]
 
 [tool.black]
 line-length = 100

@@ -31,6 +31,20 @@ function showAddFeedModal() {
             </div>
 
             <div class="form-group">
+                <label for="max-entries">每次抓取最大文章数</label>
+                <input type="number" id="max-entries" name="max_entries_per_fetch" class="form-control" value="100" min="0" max="1000">
+                <div class="form-help">每次更新最多抓取的文章数量（0-1000，0表示不限制）</div>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="fetch_only_recent">
+                    仅抓取最近 30 天的文章
+                </label>
+                <div class="form-help">启用后只保存最近 30 天内发布的文章</div>
+            </div>
+
+            <div class="form-group">
                 <label>
                     <input type="checkbox" name="enabled" checked>
                     启用此订阅源
@@ -75,6 +89,21 @@ function showEditFeedModal(feedId) {
             <div class="form-group">
                 <label for="feed-interval">抓取间隔（分钟）</label>
                 <input type="number" id="feed-interval" name="fetch_interval_minutes" class="form-control" value="${feedData.fetch_interval_minutes}" min="10" max="10080">
+            </div>
+
+            <div class="form-group">
+                <label for="max-entries">每次抓取最大文章数</label>
+                <input type="number" id="max-entries" name="max_entries_per_fetch" class="form-control"
+                       value="${feedData.max_entries_per_fetch || 100}" min="0" max="1000">
+                <div class="form-help">每次更新最多抓取的文章数量（0-1000，0表示不限制）</div>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="fetch_only_recent" ${feedData.fetch_only_recent ? 'checked' : ''}>
+                    仅抓取最近 30 天的文章
+                </label>
+                <div class="form-help">启用后只保存最近 30 天内发布的文章</div>
             </div>
 
             <div class="form-group">

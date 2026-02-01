@@ -35,6 +35,14 @@ class FeedModel(Base):
     # Feed configuration
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     fetch_interval_minutes: Mapped[int] = mapped_column(Integer, default=60, nullable=False)
+    max_entries_per_fetch: Mapped[int] = mapped_column(
+        Integer, default=100, nullable=False,
+        comment="Maximum number of entries to fetch per update (0=no limit)"
+    )
+    fetch_only_recent: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False,
+        comment="Only fetch entries from last 30 days"
+    )
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
@@ -92,6 +100,14 @@ class FeedBase(BaseModel):
     description: Optional[str] = Field(None, description="Feed description")
     enabled: bool = Field(True, description="Whether feed is enabled")
     fetch_interval_minutes: int = Field(60, ge=10, le=10080, description="Fetch interval in minutes")
+    max_entries_per_fetch: int = Field(
+        default=100, ge=0, le=1000,
+        description="Max entries per fetch (0-1000, 0=no limit)"
+    )
+    fetch_only_recent: bool = Field(
+        default=False,
+        description="Only fetch entries from last 30 days"
+    )
 
 
 class FeedCreate(FeedBase):
@@ -107,6 +123,10 @@ class FeedUpdate(BaseModel):
     description: Optional[str] = None
     enabled: Optional[bool] = None
     fetch_interval_minutes: Optional[int] = Field(None, ge=10, le=10080)
+    max_entries_per_fetch: Optional[int] = Field(
+        default=None, ge=0, le=1000
+    )
+    fetch_only_recent: Optional[bool] = None
 
 
 class FeedResponse(FeedBase):
@@ -122,6 +142,8 @@ class FeedResponse(FeedBase):
     last_error: Optional[str] = None
     last_error_at: Optional[datetime] = None
     categories: list = Field(default_factory=list)  # List of category dicts
+    max_entries_per_fetch: int
+    fetch_only_recent: bool
 
 
 class FeedListResponse(BaseModel):

@@ -263,8 +263,27 @@ App.form = {
 // Utility Functions
 // ============================================================================
 
+/**
+ * Normalize ISO date string from backend to ensure UTC interpretation.
+ * Backend returns naive ISO strings like "2025-01-15T10:30:00" without timezone info.
+ * JavaScript treats these as local time, but they are actually UTC.
+ * This function appends 'Z' if no timezone info is present.
+ */
+App.normalizeUtcDate = function(dateStr) {
+    if (!dateStr) return dateStr;
+    // Check if the date string already has timezone info (Z, +08:00, -05:00, etc.)
+    // Match: ends with Z, or +/-HH:MM, or +/-HHMM
+    const hasTimezone = /(Z|[+-]\d{2}:\d{2}|[+-]\d{4})$/i.test(dateStr);
+    if (!hasTimezone) {
+        // No timezone info, treat as UTC by appending 'Z'
+        return dateStr + 'Z';
+    }
+    return dateStr;
+};
+
 App.formatDate = function(dateStr) {
-    const date = new Date(dateStr);
+    const normalizedDateStr = App.normalizeUtcDate(dateStr);
+    const date = new Date(normalizedDateStr);
     if (isNaN(date.getTime())) return dateStr;
     return date.toLocaleString('zh-CN', {
         year: 'numeric',
@@ -278,7 +297,8 @@ App.formatDate = function(dateStr) {
 };
 
 App.formatRelativeTime = function(dateStr) {
-    const date = new Date(dateStr);
+    const normalizedDateStr = App.normalizeUtcDate(dateStr);
+    const date = new Date(normalizedDateStr);
     const now = new Date();
     const diff = now - date;
     const seconds = Math.floor(diff / 1000);

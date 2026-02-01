@@ -65,6 +65,8 @@ def feed_to_dict(feed) -> dict:
         "description": feed.description,
         "enabled": feed.enabled,
         "fetch_interval_minutes": feed.fetch_interval_minutes,
+        "max_entries_per_fetch": feed.max_entries_per_fetch,
+        "fetch_only_recent": feed.fetch_only_recent,
         "created_at": feed.created_at.isoformat() if feed.created_at else None,
         "updated_at": feed.updated_at.isoformat() if feed.updated_at else None,
         "last_fetched_at": feed.last_fetched_at.isoformat() if feed.last_fetched_at else None,

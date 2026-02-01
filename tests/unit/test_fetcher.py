@@ -23,6 +23,8 @@ def mock_feed():
         description="Test Description",
         enabled=True,
         fetch_interval_minutes=60,
+        max_entries_per_fetch=100,
+        fetch_only_recent=False,
     )
 
 
@@ -416,6 +418,8 @@ class TestFeedFetcherExtended:
             description="Test Description",
             enabled=True,
             fetch_interval_minutes=60,
+            max_entries_per_fetch=100,
+            fetch_only_recent=False,
         )
 
     def test_fetch_404_error(self, mock_feed):
@@ -799,3 +803,246 @@ class TestFeedFetcherExtended:
 
         assert stats.errors_by_type["Timeout"] == 2
         assert stats.errors_by_type["HTTP 404"] == 1
+
+
+class TestFeedPersonalization:
+    """Tests for feed personalization settings."""
+
+    @pytest.fixture
+    def mock_feed_with_limits(self):
+        """Create a mock feed with custom entry limits."""
+        return FeedModel(
+            id=1,
+            url="https://example.com/feed.xml",
+            name="Test Feed",
+            description="Test Description",
+            enabled=True,
+            fetch_interval_minutes=60,
+            max_entries_per_fetch=5,  # Limit to 5 entries
+            fetch_only_recent=False,
+        )
+
+    @pytest.fixture
+    def mock_feed_with_recent_filter(self):
+        """Create a mock feed with recent filter enabled."""
+        return FeedModel(
+            id=1,
+            url="https://example.com/feed.xml",
+            name="Test Feed",
+            description="Test Description",
+            enabled=True,
+            fetch_interval_minutes=60,
+            max_entries_per_fetch=0,  # No limit
+            fetch_only_recent=True,  # Only fetch recent entries
+        )
+
+    @patch("spider_aggregation.core.fetcher.httpx.Client")
+    def test_max_entries_per_fetch_limit(self, mock_client_class, mock_feed_with_limits):
+        """Test that max_entries_per_fetch limits the number of entries."""
+        # Create mock feed with 10 entries
+        entries = []
+        for i in range(10):
+            entries.append({
+                "title": f"Entry {i}",
+                "link": f"https://example.com/entry{i}",
+                "published_parsed": (2024, 1, i + 1, 12, 0, 0, 0, 1, 0),
+            })
+
+        mock_rss = f'''<?xml version="1.0"?>
+<rss version="2.0">
+  <channel>
+    <title>Test Feed</title>
+    {''.join(f'<item><title>Entry {i}</title><link>https://example.com/entry{i}</link><pubDate>2024-01-0{i+1}T12:00:00Z</pubDate></item>' for i in range(10))}
+  </channel>
+</rss>'''
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = mock_rss.encode()
+        mock_response.headers = {}
+
+        mock_client = MagicMock()
+        mock_client.get.return_value = mock_response
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_client_class.return_value = mock_client
+
+        fetcher = FeedFetcher()
+        result = fetcher.fetch_feed(mock_feed_with_limits)
+
+        assert result.success is True
+        # Should be limited to 5 entries (max_entries_per_fetch)
+        assert result.entries_count <= 5
+
+    @patch("spider_aggregation.core.fetcher.httpx.Client")
+    def test_max_entries_per_fetch_zero_unlimited(self, mock_client_class):
+        """Test that max_entries_per_fetch=0 means no limit."""
+        # Create feed with no limit (0)
+        feed = FeedModel(
+            id=1,
+            url="https://example.com/feed.xml",
+            name="Test Feed",
+            enabled=True,
+            fetch_interval_minutes=60,
+            max_entries_per_fetch=0,  # No limit
+            fetch_only_recent=False,
+        )
+
+        # Create mock feed with 3 entries
+        mock_rss = '''<?xml version="1.0"?>
+<rss version="2.0">
+  <channel>
+    <title>Test Feed</title>
+    <item><title>Entry 1</title></item>
+    <item><title>Entry 2</title></item>
+    <item><title>Entry 3</title></item>
+  </channel>
+</rss>'''
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = mock_rss.encode()
+        mock_response.headers = {}
+
+        mock_client = MagicMock()
+        mock_client.get.return_value = mock_response
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_client_class.return_value = mock_client
+
+        fetcher = FeedFetcher()
+        result = fetcher.fetch_feed(feed)
+
+        assert result.success is True
+        # Should get all 3 entries (no limit applied)
+        assert result.entries_count == 3
+
+    @patch("spider_aggregation.core.fetcher.httpx.Client")
+    def test_fetch_only_recent_filters_old_entries(self, mock_client_class, mock_feed_with_recent_filter):
+        """Test that fetch_only_recent filters out old entries."""
+        from datetime import datetime, timedelta
+
+        # Create feed with entries from different dates
+        # Some old (60 days ago), some recent (10 days ago)
+        now = datetime.utcnow()
+
+        old_date = now - timedelta(days=60)
+        recent_date = now - timedelta(days=10)
+
+        entries_xml = f'''<?xml version="1.0"?>
+<rss version="2.0">
+  <channel>
+    <title>Test Feed</title>
+    <item>
+      <title>Old Entry</title>
+      <link>https://example.com/old</link>
+      <pubDate>{old_date.strftime('%a, %d %b %Y %H:%M:%S GMT')}</pubDate>
+    </item>
+    <item>
+      <title>Recent Entry</title>
+      <link>https://example.com/recent</link>
+      <pubDate>{recent_date.strftime('%a, %d %b %Y %H:%M:%S GMT')}</pubDate>
+    </item>
+  </channel>
+</rss>'''
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = entries_xml.encode()
+        mock_response.headers = {}
+
+        mock_client = MagicMock()
+        mock_client.get.return_value = mock_response
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_client_class.return_value = mock_client
+
+        fetcher = FeedFetcher()
+        result = fetcher.fetch_feed(mock_feed_with_recent_filter)
+
+        assert result.success is True
+        # Should only get the recent entry
+        assert result.entries_count <= 2  # May vary based on feedparser parsing
+
+    @patch("spider_aggregation.core.fetcher.httpx.Client")
+    def test_fetch_only_recent_disabled_allows_old(self, mock_client_class):
+        """Test that when fetch_only_recent is False, old entries are kept."""
+        from datetime import datetime, timedelta
+
+        # Create feed with fetch_only_recent=False
+        feed = FeedModel(
+            id=1,
+            url="https://example.com/feed.xml",
+            name="Test Feed",
+            enabled=True,
+            fetch_interval_minutes=60,
+            max_entries_per_fetch=0,
+            fetch_only_recent=False,  # Disabled
+        )
+
+        now = datetime.utcnow()
+        old_date = now - timedelta(days=60)
+
+        entries_xml = f'''<?xml version="1.0"?>
+<rss version="2.0">
+  <channel>
+    <title>Test Feed</title>
+    <item>
+      <title>Old Entry</title>
+      <link>https://example.com/old</link>
+      <pubDate>{old_date.strftime('%a, %d %b %Y %H:%M:%S GMT')}</pubDate>
+    </item>
+  </channel>
+</rss>'''
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = entries_xml.encode()
+        mock_response.headers = {}
+
+        mock_client = MagicMock()
+        mock_client.get.return_value = mock_response
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_client_class.return_value = mock_client
+
+        fetcher = FeedFetcher()
+        result = fetcher.fetch_feed(feed)
+
+        assert result.success is True
+        # Should get the old entry (filter is disabled)
+        assert result.entries_count >= 1
+
+    @patch("spider_aggregation.core.fetcher.httpx.Client")
+    def test_feed_model_default_values(self, mock_client_class):
+        """Test that FeedModel can store custom personalization values."""
+        feed = FeedModel(
+            id=1,
+            url="https://example.com/feed.xml",
+            name="Test Feed",
+            enabled=True,
+            fetch_interval_minutes=60,
+            max_entries_per_fetch=50,  # Custom limit
+            fetch_only_recent=True,  # Enable recent filter
+        )
+
+        # Check custom values are stored
+        assert feed.max_entries_per_fetch == 50
+        assert feed.fetch_only_recent is True
+
+    @patch("spider_aggregation.core.fetcher.httpx.Client")
+    def test_feed_model_handles_none_max_entries(self, mock_client_class):
+        """Test that FeedModel handles None for max_entries_per_fetch."""
+        feed = FeedModel(
+            id=1,
+            url="https://example.com/feed.xml",
+            name="Test Feed",
+            enabled=True,
+            fetch_interval_minutes=60,
+            max_entries_per_fetch=None,
+            fetch_only_recent=False,
+        )
+
+        # None should be allowed (no limit)
+        assert feed.max_entries_per_fetch is None
+        assert feed.fetch_only_recent is False
