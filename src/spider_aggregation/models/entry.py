@@ -3,13 +3,16 @@ Entry data model for RSS/Atom feed entries.
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, Index
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from spider_aggregation.models.feed import Base
+from spider_aggregation.models.feed import Base, FeedModel
+
+if TYPE_CHECKING:
+    from spider_aggregation.models.feed import FeedModel
 
 
 class EntryModel(Base):
@@ -17,9 +20,20 @@ class EntryModel(Base):
 
     __tablename__ = "entries"
 
+    # Composite indexes for common query patterns
+    __table_args__ = (
+        Index("ix_entries_feed_published", "feed_id", "published_at"),
+        Index("ix_entries_feed_fetched", "feed_id", "fetched_at"),
+    )
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     feed_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("feeds.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    # Relationship to Feed
+    feed: Mapped["FeedModel"] = relationship(
+        "FeedModel", back_populates="entries"
     )
 
     # Basic entry fields
@@ -117,6 +131,11 @@ class FilterRuleModel(Base):
     """SQLAlchemy ORM model for FilterRule."""
 
     __tablename__ = "filter_rules"
+
+    # Composite index for enabled rules query
+    __table_args__ = (
+        Index("ix_filter_rules_enabled_priority", "enabled", "priority"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(500), nullable=False)

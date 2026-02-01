@@ -3,11 +3,14 @@ Feed data model for RSS/Atom subscription sources.
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
-from sqlalchemy import Boolean, DateTime, Integer, String, Text
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import Boolean, DateTime, Integer, String, Text, Index
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+if TYPE_CHECKING:
+    from spider_aggregation.models.entry import EntryModel
 
 
 class Base(DeclarativeBase):
@@ -20,6 +23,12 @@ class FeedModel(Base):
     """SQLAlchemy ORM model for Feed."""
 
     __tablename__ = "feeds"
+
+    # Composite indexes for common query patterns
+    __table_args__ = (
+        Index("ix_feeds_enabled_last_fetched", "enabled", "last_fetched_at"),
+        Index("ix_feeds_enabled_errors", "enabled", "fetch_error_count"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     url: Mapped[str] = mapped_column(String(2048), unique=True, nullable=False, index=True)
@@ -45,6 +54,13 @@ class FeedModel(Base):
     # Metadata
     etag: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     last_modified: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
+    # Relationship to Entries
+    entries: Mapped[list["EntryModel"]] = relationship(
+        "EntryModel",
+        back_populates="feed",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self) -> str:
         return f"<FeedModel(id={self.id}, url='{self.url}', name='{self.name}')>"

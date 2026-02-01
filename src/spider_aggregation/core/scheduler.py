@@ -324,22 +324,24 @@ class FeedScheduler:
             FetchResult
         """
         # Use provided session or create a new one from db_manager
-        session = self.session
-        session_needs_close = False
+        if self.session:
+            # Use the provided session (caller manages transaction)
+            session = self.session
+            manage_transaction = False
+        elif self.db_manager:
+            # Create a new session with proper transaction management
+            manage_transaction = True
+        else:
+            logger.error(f"No database session or db_manager for job feed_{feed_id}")
+            return FetchResult(
+                success=False,
+                feed_id=feed_id,
+                feed_url="",
+                error="No database session",
+            )
 
-        if not session:
-            if not self.db_manager:
-                logger.error(f"No database session or db_manager for job feed_{feed_id}")
-                return FetchResult(
-                    success=False,
-                    feed_id=feed_id,
-                    feed_url="",
-                    error="No database session",
-                )
-            session = self.db_manager.session()
-            session_needs_close = True
-
-        try:
+        def _do_fetch(session: Session) -> FetchResult:
+            """Inner function that performs the actual fetch."""
             repo = FeedRepository(session)
             feed = repo.get_by_id(feed_id)
 
@@ -364,30 +366,61 @@ class FeedScheduler:
             fetcher = FeedFetcher(session=session)
             result = fetcher.fetch_feed(feed)
 
-            self.stats.total_executions += 1
-            if result.success:
-                self.stats.successful_executions += 1
-            else:
-                self.stats.failed_executions += 1
-
-            self.stats.last_execution_time = datetime.now()
-            self._job_results[f"feed_{feed_id}"] = result
-
             return result
 
-        except Exception as e:
-            logger.exception(f"Error in job feed_{feed_id}: {e}")
-            self.stats.failed_executions += 1
-            self._job_errors[f"feed_{feed_id}"] = str(e)
-            return FetchResult(
-                success=False,
-                feed_id=feed_id,
-                feed_url="",
-                error=str(e),
-            )
-        finally:
-            if session_needs_close:
-                session.close()
+        if manage_transaction:
+            # Use context manager for proper transaction handling
+            try:
+                with self.db_manager.session() as session:
+                    result = _do_fetch(session)
+
+                    self.stats.total_executions += 1
+                    if result.success:
+                        self.stats.successful_executions += 1
+                    else:
+                        self.stats.failed_executions += 1
+
+                    self.stats.last_execution_time = datetime.now()
+                    self._job_results[f"feed_{feed_id}"] = result
+
+                    return result
+
+            except Exception as e:
+                logger.exception(f"Error in job feed_{feed_id}: {e}")
+                self.stats.failed_executions += 1
+                self._job_errors[f"feed_{feed_id}"] = str(e)
+                return FetchResult(
+                    success=False,
+                    feed_id=feed_id,
+                    feed_url="",
+                    error=str(e),
+                )
+        else:
+            # Caller manages the session/transaction
+            try:
+                result = _do_fetch(self.session)
+
+                self.stats.total_executions += 1
+                if result.success:
+                    self.stats.successful_executions += 1
+                else:
+                    self.stats.failed_executions += 1
+
+                self.stats.last_execution_time = datetime.now()
+                self._job_results[f"feed_{feed_id}"] = result
+
+                return result
+
+            except Exception as e:
+                logger.exception(f"Error in job feed_{feed_id}: {e}")
+                self.stats.failed_executions += 1
+                self._job_errors[f"feed_{feed_id}"] = str(e)
+                return FetchResult(
+                    success=False,
+                    feed_id=feed_id,
+                    feed_url="",
+                    error=str(e),
+                )
 
     def _fetch_feeds_wrapper(self, feed_ids: list[int]) -> list[FetchResult]:
         """Wrapper for fetching multiple feeds.

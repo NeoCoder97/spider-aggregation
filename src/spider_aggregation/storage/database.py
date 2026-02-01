@@ -8,7 +8,7 @@ from typing import Generator, Optional
 
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import QueuePool, StaticPool
 
 from spider_aggregation.config import get_config
 from spider_aggregation.models import Base
@@ -39,11 +39,18 @@ def get_engine() -> Engine:
         else:
             url = f"sqlite:///{db_path}"
 
+        # Use QueuePool for better concurrency with ThreadPoolExecutor
+        # StaticPool causes issues with multiple threads
         _engine = create_engine(
             url,
             echo=config.database.echo,
-            connect_args={"check_same_thread": False},  # Needed for SQLite
-            poolclass=StaticPool,  # Simple pool for SQLite
+            connect_args={
+                "check_same_thread": False,  # Needed for SQLite
+                "timeout": 30,  # 30 second timeout for locks
+            },
+            poolclass=QueuePool,
+            pool_size=5,  # Allow up to 5 connections in the pool
+            max_overflow=10,  # Allow up to 10 additional connections
         )
 
         # Enable foreign key constraints for SQLite
@@ -51,6 +58,8 @@ def get_engine() -> Engine:
         def set_sqlite_pragma(dbapi_conn, connection_record):
             cursor = dbapi_conn.cursor()
             cursor.execute("PRAGMA foreign_keys=ON")
+            # Set WAL mode for better concurrent read access
+            cursor.execute("PRAGMA journal_mode=WAL")
             cursor.close()
 
     return _engine
@@ -168,14 +177,20 @@ class DatabaseManager:
                 self._engine = create_engine(
                     url,
                     echo=False,
-                    connect_args={"check_same_thread": False},
-                    poolclass=StaticPool,
+                    connect_args={
+                        "check_same_thread": False,
+                        "timeout": 30,
+                    },
+                    poolclass=QueuePool,
+                    pool_size=5,
+                    max_overflow=10,
                 )
 
                 @event.listens_for(self._engine, "connect")
                 def set_sqlite_pragma(dbapi_conn, connection_record):
                     cursor = dbapi_conn.cursor()
                     cursor.execute("PRAGMA foreign_keys=ON")
+                    cursor.execute("PRAGMA journal_mode=WAL")
                     cursor.close()
             else:
                 self._engine = get_engine()

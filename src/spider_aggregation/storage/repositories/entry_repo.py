@@ -246,6 +246,25 @@ class EntryRepository:
         self.session.delete(entry)
         self.session.flush()
 
+    def delete_by_ids(self, entry_ids: list[int]) -> int:
+        """Delete entries by IDs in bulk.
+
+        Args:
+            entry_ids: List of entry IDs to delete
+
+        Returns:
+            Number of entries deleted
+        """
+        if not entry_ids:
+            return 0
+        count = (
+            self.session.query(EntryModel)
+            .filter(EntryModel.id.in_(entry_ids))
+            .delete(synchronize_session=False)
+        )
+        self.session.flush()
+        return count
+
     def delete_by_feed(self, feed_id: int) -> int:
         """Delete all entries for a feed.
 

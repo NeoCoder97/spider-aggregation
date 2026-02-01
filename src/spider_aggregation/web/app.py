@@ -530,22 +530,16 @@ def create_app(
 
         with db_manager.session() as session:
             from spider_aggregation.storage.repositories.entry_repo import EntryRepository
+            from spider_aggregation.models.entry import EntryModel
 
             entry_repo = EntryRepository(session)
-            deleted_count = 0
-            errors = []
 
-            for entry_id in entry_ids:
-                entry = entry_repo.get_by_id(entry_id)
-                if entry:
-                    entry_repo.delete(entry)
-                    deleted_count += 1
-                else:
-                    errors.append({"entry_id": entry_id, "error": "Not found"})
+            # Use bulk delete for better performance
+            deleted_count = entry_repo.delete_by_ids(entry_ids)
 
         return api_response(
             success=True,
-            data={"deleted_count": deleted_count, "errors": errors},
+            data={"deleted_count": deleted_count},
             message=f"成功删除 {deleted_count} 篇文章",
         )
 

@@ -93,7 +93,7 @@ def migrate_to_phase2(db_path: str) -> bool:
         from spider_aggregation.models.entry import FilterRuleModel
 
         logger.info("Creating filter_rules table...")
-        FilterRuleModel.metadata.create_all(session.bind, tables=[FilterRuleModel.__table__])
+        FilterRuleModel.metadata.create_all(manager.engine, tables=[FilterRuleModel.__table__])
 
         logger.info("Phase 2 migration completed successfully")
         return True
