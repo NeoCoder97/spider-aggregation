@@ -483,3 +483,42 @@ class TestSchedulerIntegration:
         # Stop
         scheduler.stop(wait=True)
         assert scheduler.is_running() is False
+
+
+class TestFeedSchedulerExtended:
+    """Extended tests for FeedScheduler to improve coverage."""
+
+    def test_job_result_tracking(self, db_session: Session):
+        """Test job results are tracked."""
+        from spider_aggregation.storage.repositories.feed_repo import FeedRepository
+        from spider_aggregation.models.feed import FeedCreate
+
+        repo = FeedRepository(db_session)
+        feed = repo.create(
+            FeedCreate(
+                url="https://example.com/feed.xml",
+                name="Test Feed",
+            )
+        )
+
+        # Mock fetcher
+        with patch("spider_aggregation.core.scheduler.FeedFetcher") as mock_fetcher_class:
+            mock_fetcher = MagicMock()
+            mock_result = FetchResult(
+                success=True,
+                feed_id=feed.id,
+                feed_url=feed.url,
+                entries_count=5,
+            )
+            mock_fetcher.fetch_feed.return_value = mock_result
+            mock_fetcher_class.return_value = mock_fetcher
+
+            scheduler = FeedScheduler(session=db_session)
+
+            # Execute job
+            scheduler._fetch_feed_wrapper(feed_id=feed.id)
+
+            # Result should be tracked
+            job_id = f"feed_{feed.id}"
+            assert job_id in scheduler._job_results
+            assert scheduler._job_results[job_id].entries_count == 5

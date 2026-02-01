@@ -583,3 +583,340 @@ class TestCreateDeduplicator:
 
         assert isinstance(dedup, Deduplicator)
         assert dedup.strategy == DedupStrategy.STRICT
+
+
+class TestDeduplicatorExtended:
+    """Extended tests for Deduplicator to improve coverage."""
+
+    def test_relaxed_strategy_title_match(self, db_session: Session):
+        """Test RELAXED strategy matches on title only."""
+        # Create a feed and entry
+        repo = FeedRepository(db_session)
+        from spider_aggregation.models.feed import FeedCreate
+
+        feed = repo.create(FeedCreate(url="https://example.com/feed.xml", name="Test Feed"))
+
+        # Add existing entry
+        from spider_aggregation.storage.repositories.entry_repo import EntryRepository
+        from spider_aggregation.models.entry import EntryCreate
+
+        entry_repo = EntryRepository(db_session)
+        title_hash = compute_title_hash("Test Entry Title")
+        link_hash = compute_link_hash("https://example.com/article1")
+        entry_repo.create(
+            EntryCreate(
+                feed_id=feed.id,
+                title="Test Entry Title",
+                link="https://example.com/article1",
+                link_hash=link_hash,
+                title_hash=title_hash,
+            )
+        )
+
+        # Check with RELAXED strategy - same title, different link
+        dedup = Deduplicator(session=db_session, strategy=DedupStrategy.RELAXED)
+        entry = {
+            "title": "Test Entry Title",
+            "link": "https://example.com/article2",  # Different link
+            "content": "Different content",
+        }
+
+        result = dedup.check_duplicate(entry, feed_id=feed.id)
+
+        # RELAXED should match on title
+        assert result.is_duplicate is True
+        assert "Duplicate title" in result.reason
+
+    def test_relaxed_strategy_no_title_match(self, db_session: Session):
+        """Test RELAXED strategy doesn't match when title differs."""
+        repo = FeedRepository(db_session)
+        from spider_aggregation.models.feed import FeedCreate
+
+        feed = repo.create(FeedCreate(url="https://example.com/feed.xml", name="Test Feed"))
+
+        from spider_aggregation.storage.repositories.entry_repo import EntryRepository
+        from spider_aggregation.models.entry import EntryCreate
+
+        entry_repo = EntryRepository(db_session)
+        entry_repo.create(
+            EntryCreate(
+                feed_id=feed.id,
+                title="Original Title",
+                link="https://example.com/article1",
+                link_hash=compute_link_hash("https://example.com/article1"),
+                title_hash=compute_title_hash("Original Title"),
+            )
+        )
+
+        # Different title, different link
+        dedup = Deduplicator(session=db_session, strategy=DedupStrategy.RELAXED)
+        entry = {
+            "title": "Different Title",
+            "link": "https://example.com/article2",
+        }
+
+        result = dedup.check_duplicate(entry, feed_id=feed.id)
+
+        # Should NOT match (no title match)
+        assert result.is_duplicate is False
+
+    def test_cross_feed_dedup_with_feed_ids_filter(self, db_session: Session):
+        """Test cross-feed deduplication with specific feed IDs."""
+        # Create three feeds
+        repo = FeedRepository(db_session)
+        from spider_aggregation.models.feed import FeedCreate
+
+        feed1 = repo.create(FeedCreate(url="https://example.com/feed1.xml", name="Feed 1"))
+        feed2 = repo.create(FeedCreate(url="https://example.com/feed2.xml", name="Feed 2"))
+        feed3 = repo.create(FeedCreate(url="https://example.com/feed3.xml", name="Feed 3"))
+
+        # Add entry to feed1
+        from spider_aggregation.storage.repositories.entry_repo import EntryRepository
+        from spider_aggregation.models.entry import EntryCreate
+
+        entry_repo = EntryRepository(db_session)
+        entry_repo.create(
+            EntryCreate(
+                feed_id=feed1.id,
+                title="Test Entry",
+                link="https://example.com/article",
+                link_hash=compute_link_hash("https://example.com/article"),
+                title_hash=compute_title_hash("Test Entry"),
+            )
+        )
+
+        # Check across feed1 and feed2 only (should find duplicate)
+        dedup = Deduplicator(session=db_session)
+        entry = {"title": "Test", "link": "https://example.com/article"}
+
+        result = dedup.check_duplicate_across_feeds(
+            entry, feed_ids=[feed1.id, feed2.id]
+        )
+
+        assert result.is_duplicate is True
+
+        # Check across feed3 only (should NOT find duplicate)
+        result = dedup.check_duplicate_across_feeds(
+            entry, feed_ids=[feed3.id]
+        )
+
+        assert result.is_duplicate is False
+
+    def test_cross_feed_dedup_all_feeds(self, db_session: Session):
+        """Test cross-feed deduplication across all feeds."""
+        repo = FeedRepository(db_session)
+        from spider_aggregation.models.feed import FeedCreate
+
+        feed1 = repo.create(FeedCreate(url="https://example.com/feed1.xml", name="Feed 1"))
+        feed2 = repo.create(FeedCreate(url="https://example.com/feed2.xml", name="Feed 2"))
+
+        # Add entry to feed1
+        from spider_aggregation.storage.repositories.entry_repo import EntryRepository
+        from spider_aggregation.models.entry import EntryCreate
+
+        entry_repo = EntryRepository(db_session)
+        entry_repo.create(
+            EntryCreate(
+                feed_id=feed1.id,
+                title="Test Entry",
+                link="https://example.com/article",
+                link_hash=compute_link_hash("https://example.com/article"),
+                title_hash=compute_title_hash("Test Entry"),
+            )
+        )
+
+        # Check across all feeds (no feed_ids filter)
+        dedup = Deduplicator(session=db_session)
+        entry = {"title": "Test", "link": "https://example.com/article"}
+
+        result = dedup.check_duplicate_across_feeds(entry, feed_ids=None)
+
+        assert result.is_duplicate is True
+        assert "across feeds" in result.reason
+
+    def test_cross_feed_dedup_by_title(self, db_session: Session):
+        """Test cross-feed deduplication by title."""
+        repo = FeedRepository(db_session)
+        from spider_aggregation.models.feed import FeedCreate
+
+        feed1 = repo.create(FeedCreate(url="https://example.com/feed1.xml", name="Feed 1"))
+        feed2 = repo.create(FeedCreate(url="https://example.com/feed2.xml", name="Feed 2"))
+
+        # Add entry to feed1
+        from spider_aggregation.storage.repositories.entry_repo import EntryRepository
+        from spider_aggregation.models.entry import EntryCreate
+
+        entry_repo = EntryRepository(db_session)
+        title_hash = compute_title_hash("Shared Title")
+        entry_repo.create(
+            EntryCreate(
+                feed_id=feed1.id,
+                title="Shared Title",
+                link="https://example.com/article1",
+                link_hash=compute_link_hash("https://example.com/article1"),
+                title_hash=title_hash,
+            )
+        )
+
+        # Check for duplicate by title across feeds
+        dedup = Deduplicator(session=db_session)
+        entry = {
+            "title": "Shared Title",
+            "link": "https://example.com/article2",  # Different link
+        }
+
+        result = dedup.check_duplicate_across_feeds(
+            entry, feed_ids=[feed1.id, feed2.id]
+        )
+
+        assert result.is_duplicate is True
+        assert "across feeds" in result.reason
+
+    def test_medium_strategy_content_match(self, db_session: Session):
+        """Test MEDIUM strategy matches on content when enabled."""
+        repo = FeedRepository(db_session)
+        from spider_aggregation.models.feed import FeedCreate
+
+        feed = repo.create(FeedCreate(url="https://example.com/feed.xml", name="Test Feed"))
+
+        # Add entry with specific content
+        from spider_aggregation.storage.repositories.entry_repo import EntryRepository
+        from spider_aggregation.models.entry import EntryCreate
+
+        entry_repo = EntryRepository(db_session)
+        content_hash = compute_content_hash("This is the original content")
+        entry_repo.create(
+            EntryCreate(
+                feed_id=feed.id,
+                title="Different Title",
+                link="https://example.com/article1",
+                link_hash=compute_link_hash("https://example.com/article1"),
+                title_hash=compute_title_hash("Different Title"),
+                content_hash=content_hash,
+            )
+        )
+
+        # Check with content match but different title
+        # Need to enable content check in the deduplicator
+        dedup = Deduplicator(session=db_session, strategy=DedupStrategy.MEDIUM)
+
+        # Mock enable_content_check to True for this test
+        with patch.object(dedup, "enable_content_check", True):
+            entry = {
+                "title": "Completely Different Title",
+                "link": "https://example.com/article2",
+                "content": "This is the original content",  # Same content
+            }
+
+            result = dedup.check_duplicate(entry, feed_id=feed.id)
+
+            # MEDIUM with content check should match
+            assert result.is_duplicate is True
+            assert "Duplicate content" in result.reason
+
+    def test_strict_strategy_both_match(self, db_session: Session):
+        """Test STRICT strategy requires both title AND content match."""
+        repo = FeedRepository(db_session)
+        from spider_aggregation.models.feed import FeedCreate
+
+        feed = repo.create(FeedCreate(url="https://example.com/feed.xml", name="Test Feed"))
+
+        # Add entry
+        from spider_aggregation.storage.repositories.entry_repo import EntryRepository
+        from spider_aggregation.models.entry import EntryCreate
+
+        entry_repo = EntryRepository(db_session)
+        entry_repo.create(
+            EntryCreate(
+                feed_id=feed.id,
+                title="Test Title",
+                link="https://example.com/article1",
+                link_hash=compute_link_hash("https://example.com/article1"),
+                title_hash=compute_title_hash("Test Title"),
+                content_hash=compute_content_hash("Test Content"),
+            )
+        )
+
+        # Same title AND same content - should match
+        dedup = Deduplicator(session=db_session, strategy=DedupStrategy.STRICT)
+        entry = {
+            "title": "Test Title",
+            "content": "Test Content",
+            "link": "https://example.com/article2",
+        }
+
+        result = dedup.check_duplicate(entry, feed_id=feed.id)
+
+        assert result.is_duplicate is True
+        assert "title and content" in result.reason
+
+    def test_compute_hashes_with_summary_fallback(self):
+        """Test compute_hashes falls back to summary for content_hash."""
+        dedup = Deduplicator()
+
+        entry = {
+            "title": "Test",
+            "link": "https://example.com/article",
+            "summary": "Summary text",  # Only summary, no content
+        }
+
+        hashes = dedup.compute_hashes(entry)
+
+        # content_hash should be computed from summary
+        assert hashes["content_hash"] is not None
+
+    def test_compute_hashes_with_no_content_fields(self):
+        """Test compute_hashes when no content fields exist."""
+        dedup = Deduplicator()
+
+        entry = {
+            "title": "Test",
+            "link": "https://example.com/article",
+            # No summary or content
+        }
+
+        hashes = dedup.compute_hashes(entry)
+
+        # content_hash should be None
+        assert hashes["content_hash"] is None
+        # But other hashes should be computed
+        assert hashes["link_hash"] is not None
+        assert hashes["title_hash"] is not None
+
+    def test_check_duplicate_disabled_title_check(self, db_session: Session):
+        """Test duplicate check with title checking disabled."""
+        repo = FeedRepository(db_session)
+        from spider_aggregation.models.feed import FeedCreate
+
+        feed = repo.create(FeedCreate(url="https://example.com/feed.xml", name="Test Feed"))
+
+        # Add existing entry
+        from spider_aggregation.storage.repositories.entry_repo import EntryRepository
+        from spider_aggregation.models.entry import EntryCreate
+
+        entry_repo = EntryRepository(db_session)
+        title_hash = compute_title_hash("Test Title")
+        entry_repo.create(
+            EntryCreate(
+                feed_id=feed.id,
+                title="Test Title",
+                link="https://example.com/article1",
+                link_hash=compute_link_hash("https://example.com/article1"),
+                title_hash=title_hash,
+            )
+        )
+
+        # Check with title checking disabled via mock
+        dedup = Deduplicator(session=db_session, strategy=DedupStrategy.RELAXED)
+
+        # Mock enable_title_check to False
+        with patch.object(dedup, "enable_title_check", False):
+            entry = {
+                "title": "Test Title",  # Same title
+                "link": "https://example.com/article2",  # Different link
+            }
+
+            result = dedup.check_duplicate(entry, feed_id=feed.id)
+
+            # Should NOT match (title checking disabled, link is different)
+            assert result.is_duplicate is False
