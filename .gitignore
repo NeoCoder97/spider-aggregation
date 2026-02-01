@@ -5,6 +5,33 @@ build/
 dist/
 wheels/
 *.egg-info
+.pytest_cache/
+.coverage
+htmlcov/
 
 # Virtual environments
-.venv
+.venv/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Project specific
+data/
+data/**/*.db
+data/**/*.db-journal
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local

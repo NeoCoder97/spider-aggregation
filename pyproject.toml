@@ -1,7 +1,58 @@
 [project]
 name = "spider-aggregation"
 version = "0.1.0"
-description = "Add your description here"
+description = "Personal knowledge/research dynamic monitoring tool"
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "feedparser>=6.0.10",
+    "httpx>=0.27.0",
+    "apscheduler>=3.10.4",
+    "sqlalchemy>=2.0.0",
+    "pydantic>=2.6.0",
+    "pydantic-settings>=2.1.0",
+    "pyyaml>=6.0.1",
+    "loguru>=0.7.2",
+    "click>=8.1.7",
+    "rich>=13.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "black>=24.0.0",
+    "ruff>=0.2.0",
+]
+
+[project.scripts]
+spider-aggregation = "spider_aggregation.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.black]
+line-length = 100
+target-version = ['py314']
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --cov=src/spider_aggregation --cov-report=term-missing"
+
+[dependency-groups]
+dev = [
+    "black>=26.1.0",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.14.14",
+]
