@@ -1,19 +1,22 @@
-# MindWeaver
-
 <div align="center">
 
-<img src="docs/logo.svg" alt="MindWeaver Logo" width="50"/>
+<img src="docs/logo.svg" alt="MindWeaver Logo" width="64"/>
 
-**汇聚信息，提炼洞察**
+# MindWeaver
 
-*个人知识/研究动态监测工具*
+*汇聚信息，提炼洞察*
+
+**个人知识/研究动态监测工具**
 
 [![Python](https://img.shields.io/badge/Python-3.14+-blue.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-
-自动化抓取、去重、存储和检索 RSS/Atom 订阅源内容的轻量化工具。
+[![Version](https://img.shields.io/badge/Version-0.3.0-orange.svg)](https://github.com/NeoCoder97/mind-weaver)
 
 </div>
+
+---
+
+自动化抓取、去重、存储和检索 RSS/Atom 订阅源内容的轻量化工具。
 
 ---
 
@@ -29,6 +32,8 @@
 - 🏷️ **关键词提取** - 自动提取关键词标签
 - 📋 **过滤规则** - 基于关键词/正则/标签/语言的过滤
 - 🤖 **AI 摘要** - 可选的 AI 摘要生成
+- 📁 **分类管理** - 订阅源分类组织和个性化设置
+- ⚙️ **个性化设置** - 每个订阅源独立配置（条目限制、仅获取最新等）
 
 ---
 
@@ -76,6 +81,14 @@ pip install -e .
 mind-weaver
 ```
 
+### 启用 AI 摘要（可选）
+
+```bash
+uv sync --all-extras
+# 或
+pip install -e ".[ai]"
+```
+
 ---
 
 ## 快速开始
@@ -105,17 +118,27 @@ uv run mind-weaver
 1. 点击 "Feeds" 标签
 2. 点击 "+ Add Feed" 按钮
 3. 输入订阅源 URL（会自动检测元数据）
-4. 配置名称、描述、抓取间隔等
-5. 点击 "Create Feed"
+4. 配置名称、描述、抓取间隔、分类等
+5. 可选：设置条目限制、仅获取最新内容
+6. 点击 "Create Feed"
 
-### 3. 启动调度器
+### 3. 管理分类
+
+在 Web 界面中：
+1. 点击 "Categories" 标签
+2. 点击 "+ 添加分类" 创建新分类
+3. 可设置颜色和图标自定义分类外观
+4. 在添加/编辑订阅源时指定分类
+5. 分类可启用/禁用，禁用后该分类下所有订阅源暂停抓取
+
+### 4. 启动调度器
 
 在 Dashboard 页面：
 1. 点击 "Start Scheduler" 按钮启动自动抓取
 2. 调度器会根据每个订阅源的间隔自动抓取
 3. 点击 "Fetch All Now" 可以立即抓取所有订阅源
 
-### 4. 管理条目
+### 5. 管理条目
 
 - **Entries** 页面：查看所有抓取的条目
 - **Dashboard** 页面：查看统计信息和最近活动
@@ -180,7 +203,7 @@ summarizer:
 ## Web 界面功能
 
 ### Dashboard
-- 统计概览（总条目数、订阅源数、过滤规则数）
+- 统计概览（总条目数、订阅源数、分类数、过滤规则数）
 - 语言分布图表
 - 最近活动
 - 订阅源健康状态
@@ -191,10 +214,19 @@ summarizer:
 - 启用/禁用订阅源
 - 手动触发抓取
 - 查看抓取状态和错误信息
+- 分类管理
+- 个性化设置（条目限制、仅获取最新）
+
+### Categories 管理
+- 创建/编辑/删除分类
+- 自定义颜色和图标
+- 启用/禁用分类
+- 查看分类下的订阅源统计
+- 分类级别的批量管理
 
 ### Entries 浏览
 - 分页浏览所有条目
-- 按订阅源过滤
+- 按订阅源/分类过滤
 - 搜索功能
 - 批量操作（删除、提取内容、关键词、摘要）
 
@@ -220,6 +252,14 @@ summarizer:
 - `DELETE /api/feeds/<id>` - 删除订阅源
 - `POST /api/feeds/<id>/toggle` - 启用/禁用
 - `POST /api/feeds/<id>/fetch` - 手动抓取
+
+### 分类管理
+- `GET /api/categories` - 获取分类列表
+- `POST /api/categories` - 创建分类
+- `PUT /api/categories/<id>` - 更新分类
+- `DELETE /api/categories/<id>` - 删除分类
+- `POST /api/categories/<id>/toggle` - 启用/禁用
+- `GET /api/categories/<id>/feeds` - 获取分类下的订阅源
 
 ### 条目管理
 - `GET /api/entries/<id>` - 获取条目详情
@@ -287,6 +327,15 @@ summarizer:
 | `KeywordExtractor` | 关键词提取（NLTK/jieba） |
 | `Summarizer` | 摘要生成（抽取式/AI） |
 
+### 数据层
+
+| 模块 | 功能 |
+|------|------|
+| `FeedRepository` | 订阅源 CRUD，分类关联 |
+| `EntryRepository` | 条目 CRUD，搜索、过滤、分页 |
+| `CategoryRepository` | 分类 CRUD，订阅源管理 |
+| `FilterRuleRepository` | 过滤规则 CRUD，优先级查询 |
+
 ---
 
 ## 开发
@@ -317,6 +366,28 @@ uv run black src/ tests/
 uv run ruff check src/ tests/
 ```
 
+### 实用脚本
+
+```bash
+# 初始化数据库
+python scripts/init_db.py
+
+# 添加示例订阅源
+python scripts/seed_feeds.py
+
+# 添加示例过滤规则
+python scripts/seed_filter_rules.py
+
+# 测试真实订阅源
+python scripts/test_real_feed.py
+
+# 数据库迁移（Phase 2 功能）
+python scripts/migrate_phase2.py
+
+# 分类功能迁移
+python scripts/migrate_categories.py
+```
+
 ---
 
 ## 性能
@@ -325,6 +396,7 @@ uv run ruff check src/ tests/
 - **去重速度**：O(1) 哈希查找
 - **存储效率**：每条约 1-5 KB（取决于内容长度）
 - **并发支持**：默认 3 个工作线程（可配置）
+- **数据库**：SQLite 支持千级订阅源/百万级条目
 
 ---
 
@@ -351,6 +423,14 @@ cp data/backup_20260201.db data/spider_aggregation.db
 1. 安装 AI 依赖：`uv sync --all-extras`
 2. 在 `config.yaml` 中配置 AI API 密钥
 3. 在 Settings 中启用 AI 摘要
+
+### 如何按主题组织订阅源？
+
+使用 Categories 功能：
+1. 在 "Categories" 页面创建分类（如 "技术"、"新闻"、"博客"）
+2. 为每个分类设置颜色和图标
+3. 在添加/编辑订阅源时指定分类
+4. 禁用整个分类可以暂停该分类下所有订阅源
 
 ---
 
@@ -386,31 +466,40 @@ cp data/backup_20260201.db data/spider_aggregation.db
 
 ## 路线图
 
-### ✅ MVP (已完成)
+### ✅ Phase 1 - MVP（已完成）
 - RSS/Atom 抓取
 - 内容解析和标准化
 - 多层次去重
 - 定时任务调度
 - Web 管理界面
 
-### ✅ Phase 2 (已完成)
+### ✅ Phase 2 - 内容增强（已完成）
 - 完整文章内容提取
 - 关键词提取
 - 过滤规则引擎
 - 批量操作
 - AI 摘要（可选）
 
-### 📋 Phase 3 (计划中)
-- 全文搜索
-- 条目分组和收藏
-- 导出功能增强（Markdown、PDF）
-- 订阅源分类
+### ✅ Phase 3 - 组织管理（已完成）
+- 订阅源分类管理
+- 分类 CRUD 操作
+- 颜色和图标自定义
+- 分类级别统计
+- 个性化订阅源设置（条目限制、仅获取最新）
 
-### 🚀 Phase 4 (长期)
-- 多源采集（网页、API、社交媒体）
-- 事件聚类
-- 趋势分析
-- 智能推荐
+### 📋 Phase 4 - 智能推荐（计划中）
+- 用户行为追踪
+- 兴趣模型构建
+- 智能推荐引擎
+- 个性化信息流
+
+### 🚀 Phase 5 - 高级功能（长期）
+- 全文搜索
+- 多源采集（社交媒体、API、网页监控）
+- 事件聚类与热点发现
+- 趋势分析与预测
+- 知识图谱
+- 自动化报告生成
 
 ---
 
