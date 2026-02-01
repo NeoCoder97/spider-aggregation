@@ -8,7 +8,7 @@ from typing import Optional
 from sqlalchemy import Select, asc, desc, func
 from sqlalchemy.orm import Session
 
-from spider_aggregation.models import EntryModel
+from spider_aggregation.models import EntryModel, FeedModel
 from spider_aggregation.models.entry import EntryCreate, EntryUpdate
 
 
@@ -394,3 +394,245 @@ class EntryRepository:
         count = q.delete()
         self.session.flush()
         return count
+
+    # Category-related methods
+
+    def list_by_category(
+        self,
+        category_id: int,
+        limit: int = 100,
+        offset: int = 0,
+        order_by: str = "published_at",
+        order_desc: bool = True,
+    ) -> list[EntryModel]:
+        """List entries by category ID (via feed relationship).
+
+        Args:
+            category_id: Category ID
+            limit: Maximum number of results
+            offset: Number of results to skip
+            order_by: Field to order by
+            order_desc: Sort in descending order
+
+        Returns:
+            List of EntryModel instances
+        """
+        from spider_aggregation.models import feed_categories
+
+        query = (
+            self.session.query(EntryModel)
+            .join(FeedModel, EntryModel.feed_id == FeedModel.id)
+            .join(feed_categories)
+            .filter(feed_categories.c.category_id == category_id)
+        )
+
+        # Apply ordering
+        order_column = getattr(EntryModel, order_by, EntryModel.published_at)
+        if order_desc:
+            query = query.order_by(desc(order_column))
+        else:
+            query = query.order_by(asc(order_column))
+
+        return query.limit(limit).offset(offset).all()
+
+    def list_by_category_name(
+        self,
+        category_name: str,
+        limit: int = 100,
+        offset: int = 0,
+        order_by: str = "published_at",
+        order_desc: bool = True,
+    ) -> list[EntryModel]:
+        """List entries by category name (via feed relationship).
+
+        Args:
+            category_name: Category name
+            limit: Maximum number of results
+            offset: Number of results to skip
+            order_by: Field to order by
+            order_desc: Sort in descending order
+
+        Returns:
+            List of EntryModel instances
+        """
+        from spider_aggregation.models import CategoryModel, feed_categories
+
+        query = (
+            self.session.query(EntryModel)
+            .join(FeedModel, EntryModel.feed_id == FeedModel.id)
+            .join(feed_categories)
+            .join(CategoryModel)
+            .filter(CategoryModel.name == category_name)
+        )
+
+        # Apply ordering
+        order_column = getattr(EntryModel, order_by, EntryModel.published_at)
+        if order_desc:
+            query = query.order_by(desc(order_column))
+        else:
+            query = query.order_by(asc(order_column))
+
+        return query.limit(limit).offset(offset).all()
+
+    def list_by_categories(
+        self,
+        category_ids: list[int],
+        limit: int = 100,
+        offset: int = 0,
+        order_by: str = "published_at",
+        order_desc: bool = True,
+    ) -> list[EntryModel]:
+        """List entries by multiple category IDs (entries from feeds in any category).
+
+        Args:
+            category_ids: List of category IDs
+            limit: Maximum number of results
+            offset: Number of results to skip
+            order_by: Field to order by
+            order_desc: Sort in descending order
+
+        Returns:
+            List of EntryModel instances
+        """
+        from spider_aggregation.models import feed_categories
+
+        if not category_ids:
+            return []
+
+        query = (
+            self.session.query(EntryModel)
+            .join(FeedModel, EntryModel.feed_id == FeedModel.id)
+            .join(feed_categories)
+            .filter(feed_categories.c.category_id.in_(category_ids))
+        )
+
+        # Apply ordering
+        order_column = getattr(EntryModel, order_by, EntryModel.published_at)
+        if order_desc:
+            query = query.order_by(desc(order_column))
+        else:
+            query = query.order_by(asc(order_column))
+
+        return query.limit(limit).offset(offset).all()
+
+    def count_by_category(self, category_id: int) -> int:
+        """Count entries by category ID.
+
+        Args:
+            category_id: Category ID
+
+        Returns:
+            Number of entries in the category
+        """
+        from spider_aggregation.models import feed_categories
+
+        return (
+            self.session.query(EntryModel)
+            .join(FeedModel, EntryModel.feed_id == FeedModel.id)
+            .join(feed_categories)
+            .filter(feed_categories.c.category_id == category_id)
+            .count()
+        )
+
+    def search_by_category(
+        self,
+        query: str,
+        category_id: int,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[EntryModel]:
+        """Search entries by title or content within a category.
+
+        Args:
+            query: Search query string
+            category_id: Category ID
+            limit: Maximum number of results
+            offset: Number of results to skip
+
+        Returns:
+            List of matching EntryModel instances
+        """
+        from spider_aggregation.models import feed_categories
+
+        q = (
+            self.session.query(EntryModel)
+            .join(FeedModel, EntryModel.feed_id == FeedModel.id)
+            .join(feed_categories)
+            .filter(feed_categories.c.category_id == category_id)
+            .filter(
+                (EntryModel.title.contains(query)) | (EntryModel.content.contains(query))
+            )
+        )
+
+        return q.order_by(desc(EntryModel.published_at)).limit(limit).offset(offset).all()
+
+    def get_recent_by_category(
+        self, category_id: int, days: int = 7, limit: int = 100
+    ) -> list[EntryModel]:
+        """Get recent entries from the last N days for a category.
+
+        Args:
+            category_id: Category ID
+            days: Number of days to look back
+            limit: Maximum number of results
+
+        Returns:
+            List of recent EntryModel instances
+        """
+        from datetime import timedelta
+        from spider_aggregation.models import feed_categories
+
+        cutoff = datetime.utcnow() - timedelta(days=days)
+
+        q = (
+            self.session.query(EntryModel)
+            .join(FeedModel, EntryModel.feed_id == FeedModel.id)
+            .join(feed_categories)
+            .filter(feed_categories.c.category_id == category_id)
+            .filter(EntryModel.published_at >= cutoff)
+            .order_by(desc(EntryModel.published_at))
+        )
+
+        return q.limit(limit).all()
+
+    def get_stats_by_category(self, category_id: int) -> dict:
+        """Get entry statistics for a category.
+
+        Args:
+            category_id: Category ID
+
+        Returns:
+            Dictionary with statistics
+        """
+        from spider_aggregation.models import feed_categories
+
+        # Build base query
+        base_query = (
+            self.session.query(EntryModel)
+            .join(FeedModel, EntryModel.feed_id == FeedModel.id)
+            .join(feed_categories)
+            .filter(feed_categories.c.category_id == category_id)
+        )
+
+        total = base_query.count()
+
+        # Count by language
+        language_counts = (
+            base_query.filter(EntryModel.language.isnot(None))
+            .with_entities(EntryModel.language, func.count(EntryModel.id))
+            .group_by(EntryModel.language)
+            .all()
+        )
+
+        # Get most recent entry date
+        most_recent = (
+            base_query.filter(EntryModel.published_at.isnot(None))
+            .order_by(desc(EntryModel.published_at))
+            .first()
+        )
+
+        return {
+            "total": total,
+            "language_counts": dict(language_counts) if language_counts else {},
+            "most_recent": most_recent.published_at if most_recent else None,
+        }

@@ -8,7 +8,7 @@ from typing import Optional
 from sqlalchemy import Select, asc, desc
 from sqlalchemy.orm import Session
 
-from spider_aggregation.models import FeedModel
+from spider_aggregation.models import FeedModel, CategoryModel
 from spider_aggregation.models.feed import FeedCreate, FeedUpdate
 
 
@@ -249,3 +249,202 @@ class FeedRepository:
         self.session.flush()
         self.session.refresh(feed)
         return feed
+
+    # Category-related methods
+
+    def get_by_category(
+        self,
+        category_id: int,
+        enabled_only: bool = False,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[FeedModel]:
+        """Get feeds by category ID.
+
+        Args:
+            category_id: Category ID
+            enabled_only: Only return enabled feeds
+            limit: Maximum number of results
+            offset: Number of results to skip
+
+        Returns:
+            List of FeedModel instances
+        """
+        from spider_aggregation.models import feed_categories
+
+        query = (
+            self.session.query(FeedModel)
+            .join(feed_categories)
+            .filter(feed_categories.c.category_id == category_id)
+        )
+
+        if enabled_only:
+            query = query.filter(FeedModel.enabled == True)
+
+        return query.order_by(desc(FeedModel.created_at)).limit(limit).offset(offset).all()
+
+    def get_by_category_name(
+        self,
+        category_name: str,
+        enabled_only: bool = False,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[FeedModel]:
+        """Get feeds by category name.
+
+        Args:
+            category_name: Category name
+            enabled_only: Only return enabled feeds
+            limit: Maximum number of results
+            offset: Number of results to skip
+
+        Returns:
+            List of FeedModel instances
+        """
+        from spider_aggregation.models import CategoryModel, feed_categories
+
+        query = (
+            self.session.query(FeedModel)
+            .join(feed_categories)
+            .join(CategoryModel)
+            .filter(CategoryModel.name == category_name)
+        )
+
+        if enabled_only:
+            query = query.filter(FeedModel.enabled == True)
+
+        return query.order_by(desc(FeedModel.created_at)).limit(limit).offset(offset).all()
+
+    def get_by_categories(
+        self,
+        category_ids: list[int],
+        enabled_only: bool = False,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[FeedModel]:
+        """Get feeds by multiple category IDs (feeds in any of the categories).
+
+        Args:
+            category_ids: List of category IDs
+            enabled_only: Only return enabled feeds
+            limit: Maximum number of results
+            offset: Number of results to skip
+
+        Returns:
+            List of FeedModel instances
+        """
+        from spider_aggregation.models import feed_categories
+
+        if not category_ids:
+            return []
+
+        query = (
+            self.session.query(FeedModel)
+            .join(feed_categories)
+            .filter(feed_categories.c.category_id.in_(category_ids))
+        )
+
+        if enabled_only:
+            query = query.filter(FeedModel.enabled == True)
+
+        return query.order_by(desc(FeedModel.created_at)).limit(limit).offset(offset).all()
+
+    def count_by_category(self, category_id: int, enabled_only: bool = False) -> int:
+        """Count feeds by category ID.
+
+        Args:
+            category_id: Category ID
+            enabled_only: Only count enabled feeds
+
+        Returns:
+            Number of feeds in the category
+        """
+        from spider_aggregation.models import feed_categories
+
+        query = (
+            self.session.query(FeedModel)
+            .join(feed_categories)
+            .filter(feed_categories.c.category_id == category_id)
+        )
+
+        if enabled_only:
+            query = query.filter(FeedModel.enabled == True)
+
+        return query.count()
+
+    def get_categories(self, feed: FeedModel) -> list[CategoryModel]:
+        """Get all categories for a feed.
+
+        Args:
+            feed: FeedModel instance
+
+        Returns:
+            List of CategoryModel instances
+        """
+        # Load categories if not already loaded
+        if not feed.categories:
+            self.session.refresh(feed)
+
+        return feed.categories
+
+    def set_categories(
+        self, feed: FeedModel, category_ids: list[int]
+    ) -> FeedModel:
+        """Set categories for a feed (replaces existing categories).
+
+        Args:
+            feed: FeedModel instance
+            category_ids: List of category IDs
+
+        Returns:
+            Updated FeedModel instance
+        """
+        from spider_aggregation.models import CategoryModel
+
+        # Fetch all category objects
+        categories = (
+            self.session.query(CategoryModel)
+            .filter(CategoryModel.id.in_(category_ids))
+            .all()
+        )
+
+        # Replace existing categories
+        feed.categories = categories
+        feed.updated_at = datetime.utcnow()
+        self.session.flush()
+        self.session.refresh(feed)
+        return feed
+
+    def add_category(self, feed: FeedModel, category: CategoryModel) -> None:
+        """Add a category to a feed.
+
+        Args:
+            feed: FeedModel instance
+            category: CategoryModel instance
+        """
+        if category not in feed.categories:
+            feed.categories.append(category)
+            feed.updated_at = datetime.utcnow()
+            self.session.flush()
+
+    def remove_category(self, feed: FeedModel, category: CategoryModel) -> None:
+        """Remove a category from a feed.
+
+        Args:
+            feed: FeedModel instance
+            category: CategoryModel instance
+        """
+        if category in feed.categories:
+            feed.categories.remove(category)
+            feed.updated_at = datetime.utcnow()
+            self.session.flush()
+
+    def clear_categories(self, feed: FeedModel) -> None:
+        """Clear all categories from a feed.
+
+        Args:
+            feed: FeedModel instance
+        """
+        feed.categories = []
+        feed.updated_at = datetime.utcnow()
+        self.session.flush()
