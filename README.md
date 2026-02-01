@@ -36,7 +36,7 @@
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/your-username/spider-aggregation.git
+git clone https://github.com/NeoCoder97/spider-aggregation.git
 cd spider-aggregation
 
 # 2. 安装 uv（如果尚未安装）
@@ -53,7 +53,7 @@ uv run spider-aggregation --version
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/your-username/spider-aggregation.git
+git clone https://github.com/NeoCoder97/spider-aggregation.git
 cd spider-aggregation
 
 # 2. 创建虚拟环境
