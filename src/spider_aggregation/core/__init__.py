@@ -41,3 +41,42 @@ __all__ = [
     "SchedulerStats",
     "create_scheduler",
 ]
+
+# Phase 2 exports
+from spider_aggregation.core.filter_engine import (
+    FilterEngine,
+    FilterResult,
+    create_filter_engine,
+)
+from spider_aggregation.core.content_fetcher import (
+    ContentFetcher,
+    ContentFetchResult,
+    create_content_fetcher,
+)
+from spider_aggregation.core.keyword_extractor import (
+    KeywordExtractor,
+    create_keyword_extractor,
+)
+from spider_aggregation.core.summarizer import (
+    Summarizer,
+    ExtractiveSummarizer,
+    AISummarizer,
+    SummaryResult,
+    create_summarizer,
+)
+
+__all__ += [
+    "FilterEngine",
+    "FilterResult",
+    "create_filter_engine",
+    "ContentFetcher",
+    "ContentFetchResult",
+    "create_content_fetcher",
+    "KeywordExtractor",
+    "create_keyword_extractor",
+    "Summarizer",
+    "ExtractiveSummarizer",
+    "AISummarizer",
+    "SummaryResult",
+    "create_summarizer",
+]
