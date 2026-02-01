@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}设置 - Spider Aggregation{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>系统设置</h2>
+</div>
+
+<!-- Data Management -->
+<div class="dashboard-section">
+    <h3>数据管理</h3>
+
+    <div class="form-group">
+        <label>清理旧文章</label>
+        <p class="form-help">删除指定天数之前抓取的文章</p>
+        <div style="display: flex; gap: 1rem; align-items: center; margin-top: 0.5rem;">
+            <input type="number" id="cleanup-days" class="form-control" value="90" min="1" max="365" style="width: 100px;">
+            <span>天</span>
+            <button type="button" class="btn btn-danger" onclick="cleanupOldData()">清理</button>
+        </div>
+    </div>
+</div>
+
+<!-- Data Export -->
+<div class="dashboard-section">
+    <h3>数据导出</h3>
+
+    <div style="display: flex; flex-direction: column; gap: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <strong>导出文章</strong>
+                <p class="form-help">下载所有文章为 JSON 文件</p>
+            </div>
+            <a href="{{ url_for('api_export_entries') }}" class="btn btn-secondary">下载文章</a>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <strong>导出订阅源</strong>
+                <p class="form-help">下载所有订阅源为 JSON 文件</p>
+            </div>
+            <a href="{{ url_for('api_export_feeds') }}" class="btn btn-secondary">下载订阅源</a>
+        </div>
+    </div>
+</div>
+
+<!-- System Info -->
+<div class="dashboard-section">
+    <h3>系统信息</h3>
+
+    <table style="width: 100%; max-width: 600px;">
+        <tr>
+            <td style="font-weight: 500;">版本</td>
+            <td>Spider Aggregation v0.3.0</td>
+        </tr>
+        <tr>
+            <td style="font-weight: 500;">Phase 2 功能</td>
+            <td>
+                <span class="badge badge-success">内容提取</span>
+                <span class="badge badge-success">关键词提取</span>
+                <span class="badge badge-success">摘要生成</span>
+            </td>
+        </tr>
+    </table>
+</div>
+
+<!-- Quick Links -->
+<div class="dashboard-section">
+    <h3>快捷链接</h3>
+    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">仪表盘</a>
+        <a href="{{ url_for('feeds') }}" class="btn btn-secondary">订阅源管理</a>
+        <a href="{{ url_for('filter_rules') }}" class="btn btn-secondary">过滤规则</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function cleanupOldData() {
+    const days = parseInt(document.getElementById('cleanup-days').value);
+
+    if (isNaN(days) || days < 1) {
+        App.showToast('请输入有效的天数', 'error');
+        return;
+    }
+
+    App.modal.confirm(
+        `确定要删除 ${days} 天前的所有文章吗？`,
+        async () => {
+            App.showToast('正在清理数据...', 'info');
+
+            try {
+                const response = await App.api.post('/api/system/cleanup', { days: days });
+
+                if (response.success) {
+                    const count = response.data?.deleted_count || 0;
+                    App.showToast(`清理完成：删除了 ${count} 篇文章`, 'success');
+                } else {
+                    App.showToast(response.error || '清理失败', 'error');
+                }
+            } catch (error) {
+                console.error('清理错误:', error);
+                App.showToast('清理失败', 'error');
+            }
+        },
+        { title: '确认清理', danger: true }
+    );
+}
+</script>
+{% endblock %}

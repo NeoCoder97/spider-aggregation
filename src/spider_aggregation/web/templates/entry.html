@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}{{ entry.title }} - Spider Aggregation{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <a href="{{ url_for('index') }}" class="btn btn-small">&larr; 返回文章列表</a>
+</div>
+
+<article class="entry-detail">
+    <h1 class="entry-detail-title">{{ entry.title }}</h1>
+
+    <div class="entry-detail-meta">
+        {% if entry.author %}
+        <span class="entry-author">作者: {{ entry.author }}</span>
+        {% endif %}
+        {% if entry.published_at %}
+        <span class="entry-date">{{ entry.published_at|format_datetime }}</span>
+        {% endif %}
+        {% if entry.language %}
+        <span class="entry-language">{{ entry.language.upper() }}</span>
+        {% endif %}
+        {% if entry.reading_time_seconds %}
+        <span class="entry-reading-time">
+            阅读时间: {{ (entry.reading_time_seconds // 60) }} 分钟
+        </span>
+        {% endif %}
+    </div>
+
+    {% if entry.tags_list %}
+    <div class="entry-tags">
+        {% for tag in entry.tags_list %}
+        <span class="tag">{{ tag }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="entry-detail-content">
+        {% if entry.content %}
+        {{ entry.content|nl2br }}
+        {% elif entry.summary %}
+        {{ entry.summary|nl2br }}
+        {% else %}
+        <p class="text-muted">暂无内容</p>
+        {% endif %}
+    </div>
+
+    <div class="entry-detail-actions">
+        <a href="{{ entry.link }}" target="_blank" rel="noopener" class="btn btn-primary">查看原文</a>
+    </div>
+</article>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Register nl2br filter for Jinja2 is not available by default
+// This is handled by CSS white-space: pre-wrap
+</script>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}过滤规则 - Spider Aggregation{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>过滤规则</h2>
+    <button type="button" class="btn btn-primary" onclick="showAddFilterRuleModal()">+ 添加规则</button>
+</div>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>名称</th>
+                <th>类型</th>
+                <th>匹配方式</th>
+                <th>模式</th>
+                <th>优先级</th>
+                <th>状态</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rule in rules %}
+            <tr data-rule-id="{{ rule.id }}">
+                <td>
+                    <strong>{{ rule.name }}</strong>
+                </td>
+                <td>
+                    <span class="badge badge-primary">{{ rule.rule_type }}</span>
+                </td>
+                <td>
+                    <span class="badge badge-{{ 'success' if rule.match_type == 'include' else 'error' }}">
+                        {{ "通过" if rule.match_type == 'include' else "过滤" }}
+                    </span>
+                </td>
+                <td style="font-family: monospace; max-width: 300px; overflow: hidden; text-overflow: ellipsis;" title="{{ rule.pattern }}">
+                    {{ rule.pattern[:50] }}{% if rule.pattern|length > 50 %}...{% endif %}
+                </td>
+                <td>{{ rule.priority }}</td>
+                <td>
+                    <span class="feed-status {{ 'enabled' if rule.enabled else 'disabled' }}">
+                        {{ "启用" if rule.enabled else "禁用" }}
+                    </span>
+                </td>
+                <td>
+                    <div class="btn-group">
+                        <button type="button" class="btn-icon" onclick="showEditFilterRuleModal({{ rule.id }})" title="编辑">✏️</button>
+                        <button type="button" class="btn-icon" onclick="toggleFilterRule({{ rule.id }})" title="{{ '禁用' if rule.enabled else '启用' }}">
+                            {{ '⏸️' if rule.enabled else '▶️' }}
+                        </button>
+                        <button type="button" class="btn-icon" onclick="deleteFilterRule({{ rule.id }})" title="删除">🗑️</button>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" class="empty-state">
+                    <p>暂无过滤规则</p>
+                    <p><button type="button" class="btn btn-primary" onclick="showAddFilterRuleModal()">+ 添加第一条规则</button></p>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="dashboard-section" style="margin-top: 2rem;">
+    <h3>关于过滤规则</h3>
+    <p style="color: var(--text-muted); margin-bottom: 1rem;">
+        过滤规则允许您根据关键词、正则表达式、标签或语言自动过滤新抓取的文章。
+    </p>
+    <ul style="color: var(--text-muted); padding-left: 1.5rem;">
+        <li><strong>关键词：</strong>匹配标题或内容中包含精确关键词的文章</li>
+        <li><strong>正则表达式：</strong>使用正则表达式进行高级模式匹配</li>
+        <li><strong>标签：</strong>匹配具有特定标签的文章</li>
+        <li><strong>语言：</strong>匹配特定语言的文章（en、zh、ja 等）</li>
+    </ul>
+    <p style="color: var(--text-muted); margin-top: 1rem;">
+        <strong>通过（Include）：</strong>匹配的文章会通过过滤器<br>
+        <strong>过滤（Exclude）：</strong>匹配的文章会被过滤掉
+    </p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/forms.js') }}"></script>
+<script>
+    // Store rule data for editing
+    window.ruleData = {{ rules|tojson|safe }};
+</script>
+{% endblock %}
