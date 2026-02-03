@@ -12,9 +12,13 @@ from spider_aggregation.models import CategoryModel
 from spider_aggregation.models.category import CategoryCreate, CategoryUpdate
 from spider_aggregation.models.feed import FeedModel
 from spider_aggregation.storage.repositories.base import BaseRepository
+from spider_aggregation.storage.mixins import CategoryRelationshipMixin
 
 
-class CategoryRepository(BaseRepository[CategoryModel, CategoryCreate, CategoryUpdate]):
+class CategoryRepository(
+    BaseRepository[CategoryModel, CategoryCreate, CategoryUpdate],
+    CategoryRelationshipMixin,
+):
     """Repository for Category CRUD operations.
 
     Inherits common CRUD operations from BaseRepository.
@@ -129,26 +133,28 @@ class CategoryRepository(BaseRepository[CategoryModel, CategoryCreate, CategoryU
     ) -> None:
         """Add a feed to a category.
 
+        Delegates to CategoryRelationshipMixin.add_category_to_feed().
+
         Args:
             feed: FeedModel instance
             category: CategoryModel instance
         """
-        if category not in feed.categories:
-            feed.categories.append(category)
-            self.session.flush()
+        # Don't update timestamp when called from CategoryRepository
+        self.add_category_to_feed(feed, category, update_timestamp=False)
 
     def remove_feed_from_category(
         self, feed: FeedModel, category: CategoryModel
     ) -> None:
         """Remove a feed from a category.
 
+        Delegates to CategoryRelationshipMixin.remove_category_from_feed().
+
         Args:
             feed: FeedModel instance
             category: CategoryModel instance
         """
-        if category in feed.categories:
-            feed.categories.remove(category)
-            self.session.flush()
+        # Don't update timestamp when called from CategoryRepository
+        self.remove_category_from_feed(feed, category, update_timestamp=False)
 
     def get_feeds_by_category(
         self,
@@ -205,6 +211,8 @@ class CategoryRepository(BaseRepository[CategoryModel, CategoryCreate, CategoryU
     ) -> FeedModel:
         """Set categories for a feed (replaces existing categories).
 
+        Delegates to CategoryRelationshipMixin.set_categories_for_feed().
+
         Args:
             feed: FeedModel instance
             category_ids: List of category IDs
@@ -212,16 +220,5 @@ class CategoryRepository(BaseRepository[CategoryModel, CategoryCreate, CategoryU
         Returns:
             Updated FeedModel instance
         """
-        # Fetch all category objects
-        categories = (
-            self.session.query(CategoryModel)
-            .filter(CategoryModel.id.in_(category_ids))
-            .all()
-        )
-
-        # Replace existing categories
-        feed.categories = categories
-        feed.updated_at = datetime.utcnow()
-        self.session.flush()
-        self.session.refresh(feed)
-        return feed
+        # Use mixin method, refresh for CategoryRepository usage
+        return self.set_categories_for_feed(feed, category_ids, update_timestamp=True, refresh=True)

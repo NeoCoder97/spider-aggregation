@@ -5,7 +5,7 @@ This module contains all filter rule related API endpoints.
 """
 
 from spider_aggregation.web.blueprints.base import CRUDBlueprint
-from spider_aggregation.web.serializers import api_response, filter_rule_to_dict
+from spider_aggregation.web.serializers import api_response
 from spider_aggregation.logger import get_logger
 from spider_aggregation.storage.repositories.filter_rule_repo import FilterRuleRepository
 from spider_aggregation.models.filter_rule import FilterRuleCreate, FilterRuleUpdate
@@ -34,9 +34,9 @@ class FilterRuleBlueprint(CRUDBlueprint):
         """Get the FilterRuleUpdate schema class."""
         return FilterRuleUpdate
 
-    def serialize(self, model) -> dict:
-        """Convert FilterRule model to dictionary."""
-        return filter_rule_to_dict(model)
+    def get_model_type(self) -> str:
+        """Get the model type for SerializerRegistry."""
+        return "filter_rule"
 
     def get_resource_name(self) -> str:
         """Get the resource name for messages."""

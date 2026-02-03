@@ -2,16 +2,23 @@
 Filter rule repository for database operations.
 """
 
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from sqlalchemy import asc, desc
 from sqlalchemy.orm import Session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Query
+
 from spider_aggregation.models.filter_rule import FilterRuleModel, FilterRuleCreate, FilterRuleUpdate
 from spider_aggregation.storage.repositories.base import BaseRepository
+from spider_aggregation.storage.mixins import FilterQueryMixin
 
 
-class FilterRuleRepository(BaseRepository[FilterRuleModel, FilterRuleCreate, FilterRuleUpdate]):
+class FilterRuleRepository(
+    BaseRepository[FilterRuleModel, FilterRuleCreate, FilterRuleUpdate],
+    FilterQueryMixin[FilterRuleModel],
+):
     """Repository for FilterRule CRUD operations.
 
     Inherits common CRUD operations from BaseRepository.
@@ -38,6 +45,20 @@ class FilterRuleRepository(BaseRepository[FilterRuleModel, FilterRuleCreate, Fil
             FilterRuleModel.name == name
         ).first()
 
+    def _get_complex_filter_keys(self) -> set[str]:
+        """Return filter keys that require complex handling."""
+        return {"rule_type", "match_type"}
+
+    def _apply_complex_filters(
+        self, query, filters: dict
+    ) -> "Query[FilterRuleModel]":
+        """Apply rule_type and match_type filters."""
+        if "rule_type" in filters and filters["rule_type"] is not None:
+            query = query.filter(FilterRuleModel.rule_type == filters["rule_type"])
+        if "match_type" in filters and filters["match_type"] is not None:
+            query = query.filter(FilterRuleModel.match_type == filters["match_type"])
+        return query
+
     def list(
         self,
         enabled_only: bool = False,
@@ -62,32 +83,23 @@ class FilterRuleRepository(BaseRepository[FilterRuleModel, FilterRuleCreate, Fil
         Returns:
             List of FilterRuleModel instances
         """
+        # Build filters dict for mixin
         filters = {}
         if enabled_only:
             filters["enabled"] = True
-
-        query = self.session.query(FilterRuleModel)
-
-        # Apply simple filters
-        for key, value in filters.items():
-            if value is not None and hasattr(FilterRuleModel, key):
-                query = query.filter(getattr(FilterRuleModel, key) == value)
-
-        # Apply complex filters
         if rule_type is not None:
-            query = query.filter(FilterRuleModel.rule_type == rule_type)
-
+            filters["rule_type"] = rule_type
         if match_type is not None:
-            query = query.filter(FilterRuleModel.match_type == match_type)
+            filters["match_type"] = match_type
 
-        # Apply ordering
-        order_column = getattr(FilterRuleModel, order_by, FilterRuleModel.priority)
-        if order_desc:
-            query = query.order_by(desc(order_column))
-        else:
-            query = query.order_by(asc(order_column))
-
-        return query.limit(limit).offset(offset).all()
+        # Use mixin's list method
+        return super().list(
+            limit=limit,
+            offset=offset,
+            order_by=order_by,
+            order_desc=order_desc,
+            **filters,
+        )
 
     def count(
         self,
@@ -105,18 +117,17 @@ class FilterRuleRepository(BaseRepository[FilterRuleModel, FilterRuleCreate, Fil
         Returns:
             Number of filter rules
         """
-        query = self.session.query(FilterRuleModel)
-
+        # Build filters dict for mixin
+        filters = {}
         if enabled_only:
-            query = query.filter(FilterRuleModel.enabled == True)
-
+            filters["enabled"] = True
         if rule_type is not None:
-            query = query.filter(FilterRuleModel.rule_type == rule_type)
-
+            filters["rule_type"] = rule_type
         if match_type is not None:
-            query = query.filter(FilterRuleModel.match_type == match_type)
+            filters["match_type"] = match_type
 
-        return query.count()
+        # Use mixin's count method
+        return super().count(**filters)
 
     def get_enabled_rules(self) -> list[FilterRuleModel]:
         """Get all enabled rules ordered by priority (descending).

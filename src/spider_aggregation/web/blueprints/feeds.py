@@ -6,7 +6,7 @@ This module contains all feed-related API endpoints.
 
 from flask import request
 from spider_aggregation.web.blueprints.base import CRUDBlueprint
-from spider_aggregation.web.serializers import api_response, feed_to_dict
+from spider_aggregation.web.serializers import api_response
 from spider_aggregation.logger import get_logger
 from spider_aggregation.storage.repositories.feed_repo import FeedRepository
 from spider_aggregation.models import FeedCreate, FeedUpdate
@@ -69,9 +69,9 @@ class FeedBlueprint(CRUDBlueprint):
         """Get the FeedUpdate schema class."""
         return FeedUpdate
 
-    def serialize(self, model) -> dict:
-        """Convert Feed model to dictionary."""
-        return feed_to_dict(model)
+    def get_model_type(self) -> str:
+        """Get the model type for SerializerRegistry."""
+        return "feed"
 
     def get_resource_name(self) -> str:
         """Get the resource name for messages."""

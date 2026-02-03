@@ -102,6 +102,42 @@ class CRUDBlueprint(ABC):
         """
         pass
 
+    def get_model_type(self) -> str:
+        """Get the model type for serialization.
+
+        This method is used by the default serialize() implementation
+        to look up the serializer from SerializerRegistry.
+
+        Override this method if your model type differs from the
+        resource name.
+
+        Returns:
+            Model type identifier for SerializerRegistry
+
+        Example:
+            # For feeds, returns "feed"
+            # For filter rules, returns "filter_rule"
+        """
+        # Default implementation: lowercase resource name
+        return self.get_resource_name().lower()
+
+    def serialize(self, model: ModelType, **kwargs) -> dict:
+        """Convert model to dictionary using SerializerRegistry.
+
+        This default implementation uses the SerializerRegistry.
+        Subclasses can override this method to provide custom serialization.
+
+        Args:
+            model: Model instance
+            **kwargs: Additional arguments to pass to the serializer
+
+        Returns:
+            Dictionary representation
+        """
+        from spider_aggregation.web.serializers import SerializerRegistry
+
+        return SerializerRegistry.serialize(self.get_model_type(), model, **kwargs)
+
     def validate_create_data(self, data: dict) -> tuple[bool, str]:
         """Validate data before creating a resource.
 

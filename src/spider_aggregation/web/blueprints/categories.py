@@ -6,7 +6,7 @@ This module contains all category-related API endpoints.
 
 from flask import request
 from spider_aggregation.web.blueprints.base import CRUDBlueprint
-from spider_aggregation.web.serializers import api_response, category_to_dict
+from spider_aggregation.web.serializers import api_response, SerializerRegistry
 from spider_aggregation.logger import get_logger
 from spider_aggregation.storage.repositories.category_repo import CategoryRepository
 from spider_aggregation.models.category import CategoryCreate, CategoryUpdate
@@ -84,16 +84,31 @@ class CategoryBlueprint(CRUDBlueprint):
         """Get the CategoryUpdate schema class."""
         return CategoryUpdate
 
-    def serialize(self, model) -> dict:
-        """Convert Category model to dictionary."""
-        # Include feed count
+    def get_model_type(self) -> str:
+        """Get the model type for SerializerRegistry."""
+        return "category"
+
+    def serialize(self, model, **kwargs) -> dict:
+        """Convert Category model to dictionary with feed count.
+
+        This override adds feed_count to the serialization using
+        SerializerRegistry for the base serialization.
+
+        Args:
+            model: CategoryModel instance
+            **kwargs: Additional parameters (not used, for compatibility)
+
+        Returns:
+            Dictionary with feed_count included
+        """
         from spider_aggregation.storage.database import DatabaseManager
         db_manager = DatabaseManager(self.db_path)
 
         with db_manager.session() as session:
             repo = self._get_repository(session)
             feed_count = repo.get_feed_count_by_category(model.id)
-            return category_to_dict(model, feed_count)
+            # Use SerializerRegistry for base serialization
+            return SerializerRegistry.serialize("category", model, feed_count=feed_count)
 
     def get_resource_name(self) -> str:
         """Get the resource name for messages."""

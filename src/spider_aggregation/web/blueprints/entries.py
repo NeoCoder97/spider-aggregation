@@ -6,7 +6,7 @@ This module contains all entry-related API endpoints.
 
 from flask import request
 from spider_aggregation.web.blueprints.base import CRUDBlueprint
-from spider_aggregation.web.serializers import api_response, entry_to_dict, category_to_dict
+from spider_aggregation.web.serializers import api_response
 from spider_aggregation.logger import get_logger
 from spider_aggregation.storage.repositories.entry_repo import EntryRepository
 from spider_aggregation.storage.repositories.feed_repo import FeedRepository
@@ -94,9 +94,9 @@ class EntryBlueprint(CRUDBlueprint):
         """Get the EntryUpdate schema class."""
         return EntryUpdate
 
-    def serialize(self, model) -> dict:
-        """Convert Entry model to dictionary."""
-        return entry_to_dict(model)
+    def get_model_type(self) -> str:
+        """Get the model type for SerializerRegistry."""
+        return "entry"
 
     def get_resource_name(self) -> str:
         """Get the resource name for messages."""

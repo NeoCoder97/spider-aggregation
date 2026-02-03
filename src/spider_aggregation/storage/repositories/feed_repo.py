@@ -12,9 +12,14 @@ from spider_aggregation.models import FeedModel, CategoryModel
 from spider_aggregation.models.feed import FeedCreate, FeedUpdate
 from spider_aggregation.storage.repositories.base import BaseRepository
 from spider_aggregation.storage.repositories.mixins import CategoryQueryMixin
+from spider_aggregation.storage.mixins import CategoryRelationshipMixin
 
 
-class FeedRepository(BaseRepository[FeedModel, FeedCreate, FeedUpdate], CategoryQueryMixin[FeedModel]):
+class FeedRepository(
+    BaseRepository[FeedModel, FeedCreate, FeedUpdate],
+    CategoryQueryMixin[FeedModel],
+    CategoryRelationshipMixin,
+):
     """Repository for Feed CRUD operations.
 
     Inherits common CRUD operations from BaseRepository and category-based
@@ -192,7 +197,7 @@ class FeedRepository(BaseRepository[FeedModel, FeedCreate, FeedUpdate], Category
         self.session.refresh(feed)
         return feed
 
-    # Category relationship methods
+    # Category relationship methods (from CategoryRelationshipMixin)
 
     def get_categories(self, feed: FeedModel) -> list[CategoryModel]:
         """Get all categories for a feed.
@@ -214,6 +219,8 @@ class FeedRepository(BaseRepository[FeedModel, FeedCreate, FeedUpdate], Category
     ) -> FeedModel:
         """Set categories for a feed (replaces existing categories).
 
+        Delegates to CategoryRelationshipMixin.set_categories_for_feed().
+
         Args:
             feed: FeedModel instance
             category_ids: List of category IDs
@@ -221,51 +228,37 @@ class FeedRepository(BaseRepository[FeedModel, FeedCreate, FeedUpdate], Category
         Returns:
             Updated FeedModel instance
         """
-        # Fetch all category objects
-        categories = (
-            self.session.query(CategoryModel)
-            .filter(CategoryModel.id.in_(category_ids))
-            .all()
-        )
-
-        # Replace existing categories
-        feed.categories = categories
-        feed.updated_at = datetime.utcnow()
-        self.session.flush()
-        # Don't refresh to avoid DetachedInstanceError
-        # The categories relationship is already set
-        return feed
+        # Use mixin method, don't refresh to avoid DetachedInstanceError
+        return self.set_categories_for_feed(feed, category_ids, update_timestamp=True, refresh=False)
 
     def add_category(self, feed: FeedModel, category: CategoryModel) -> None:
         """Add a category to a feed.
 
+        Delegates to CategoryRelationshipMixin.add_category_to_feed().
+
         Args:
             feed: FeedModel instance
             category: CategoryModel instance
         """
-        if category not in feed.categories:
-            feed.categories.append(category)
-            feed.updated_at = datetime.utcnow()
-            self.session.flush()
+        self.add_category_to_feed(feed, category)
 
     def remove_category(self, feed: FeedModel, category: CategoryModel) -> None:
         """Remove a category from a feed.
 
+        Delegates to CategoryRelationshipMixin.remove_category_from_feed().
+
         Args:
             feed: FeedModel instance
             category: CategoryModel instance
         """
-        if category in feed.categories:
-            feed.categories.remove(category)
-            feed.updated_at = datetime.utcnow()
-            self.session.flush()
+        self.remove_category_from_feed(feed, category)
 
     def clear_categories(self, feed: FeedModel) -> None:
         """Clear all categories from a feed.
 
+        Delegates to CategoryRelationshipMixin.clear_categories_from_feed().
+
         Args:
             feed: FeedModel instance
         """
-        feed.categories = []
-        feed.updated_at = datetime.utcnow()
-        self.session.flush()
+        self.clear_categories_from_feed(feed)
