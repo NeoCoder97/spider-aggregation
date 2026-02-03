@@ -277,28 +277,27 @@ class FeedBlueprint(CRUDBlueprint):
             API response
         """
         from spider_aggregation.storage.database import DatabaseManager
-        from spider_aggregation.models import CategoryModel
+        from spider_aggregation.storage.repositories.category_repo import CategoryRepository
 
         db_manager = DatabaseManager(self.db_path)
 
         with db_manager.session() as session:
-            repo = self._get_repository(session)
-            feed = repo.get_by_id(feed_id)
+            feed_repo = self._get_repository(session)
+            category_repo = CategoryRepository(session)
+            feed = feed_repo.get_by_id(feed_id)
 
             if not feed:
                 return api_response(success=False, error="未找到订阅源", status=404)
 
-            category = session.query(CategoryModel).filter(
-                CategoryModel.id == category_id
-            ).first()
+            category = category_repo.get_by_id(category_id)
 
             if not category:
                 return api_response(success=False, error="未找到分类", status=404)
 
-            repo.add_category(feed, category)
+            feed_repo.add_category(feed, category)
 
             from spider_aggregation.web.serializers import category_to_dict
-            categories = repo.get_categories(feed)
+            categories = feed_repo.get_categories(feed)
             data = [category_to_dict(c) for c in categories]
 
         return api_response(
@@ -318,28 +317,27 @@ class FeedBlueprint(CRUDBlueprint):
             API response
         """
         from spider_aggregation.storage.database import DatabaseManager
-        from spider_aggregation.models import CategoryModel
+        from spider_aggregation.storage.repositories.category_repo import CategoryRepository
 
         db_manager = DatabaseManager(self.db_path)
 
         with db_manager.session() as session:
-            repo = self._get_repository(session)
-            feed = repo.get_by_id(feed_id)
+            feed_repo = self._get_repository(session)
+            category_repo = CategoryRepository(session)
+            feed = feed_repo.get_by_id(feed_id)
 
             if not feed:
                 return api_response(success=False, error="未找到订阅源", status=404)
 
-            category = session.query(CategoryModel).filter(
-                CategoryModel.id == category_id
-            ).first()
+            category = category_repo.get_by_id(category_id)
 
             if not category:
                 return api_response(success=False, error="未找到分类", status=404)
 
-            repo.remove_category(feed, category)
+            feed_repo.remove_category(feed, category)
 
             from spider_aggregation.web.serializers import category_to_dict
-            categories = repo.get_categories(feed)
+            categories = feed_repo.get_categories(feed)
             data = [category_to_dict(c) for c in categories]
 
         return api_response(

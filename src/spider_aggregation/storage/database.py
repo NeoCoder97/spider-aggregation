@@ -4,14 +4,16 @@ Database connection and session management.
 
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator, Optional
+from typing import TYPE_CHECKING, Generator, Optional
 
-from sqlalchemy import Engine, create_engine, event
+from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import QueuePool, StaticPool
 
 from spider_aggregation.config import get_config
 from spider_aggregation.models import Base
+
+if TYPE_CHECKING:
+    from spider_aggregation.config import DatabaseConfig
 
 # Global engine and session factory
 _engine: Optional[Engine] = None
@@ -28,39 +30,25 @@ def get_engine() -> Engine:
 
     if _engine is None:
         config = get_config()
-        db_path = Path(config.database.path)
+        db_config: DatabaseConfig = config.database
 
-        # Ensure database directory exists
-        db_path.parent.mkdir(parents=True, exist_ok=True)
+        # Import dialect system
+        from spider_aggregation.storage.dialects import get_dialect
+
+        # Get appropriate dialect
+        dialect = get_dialect(db_config.type)
+
+        # Build database URL using dialect
+        url = dialect.build_url(db_config)
+
+        # Get engine kwargs from dialect
+        engine_kwargs = dialect.get_engine_kwargs(db_config)
 
         # Create engine
-        if config.database.path.startswith("sqlite://"):
-            url = config.database.path
-        else:
-            url = f"sqlite:///{db_path}"
+        _engine = create_engine(url, **engine_kwargs)
 
-        # Use QueuePool for better concurrency with ThreadPoolExecutor
-        # StaticPool causes issues with multiple threads
-        _engine = create_engine(
-            url,
-            echo=config.database.echo,
-            connect_args={
-                "check_same_thread": False,  # Needed for SQLite
-                "timeout": 30,  # 30 second timeout for locks
-            },
-            poolclass=QueuePool,
-            pool_size=5,  # Allow up to 5 connections in the pool
-            max_overflow=10,  # Allow up to 10 additional connections
-        )
-
-        # Enable foreign key constraints for SQLite
-        @event.listens_for(_engine, "connect")
-        def set_sqlite_pragma(dbapi_conn, connection_record):
-            cursor = dbapi_conn.cursor()
-            cursor.execute("PRAGMA foreign_keys=ON")
-            # Set WAL mode for better concurrent read access
-            cursor.execute("PRAGMA journal_mode=WAL")
-            cursor.close()
+        # Set up dialect-specific events (e.g., SQLite PRAGMA)
+        dialect.setup_engine_events(_engine)
 
     return _engine
 
@@ -206,13 +194,19 @@ def close_db() -> None:
 class DatabaseManager:
     """Database manager for context-managed database operations."""
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: Optional[str] = None, db_config: Optional["DatabaseConfig"] = None):
         """Initialize database manager.
 
         Args:
-            db_path: Optional custom database path. If not provided, uses config.
+            db_path: Optional custom database path for SQLite (deprecated, use db_config).
+            db_config: Optional custom database configuration.
+
+        Note:
+            If neither db_path nor db_config is provided, uses the global config.
+            For custom database backends, provide db_config.
         """
         self._custom_db_path = db_path
+        self._custom_db_config = db_config
         self._engine: Optional[Engine] = None
 
     @property
@@ -220,28 +214,33 @@ class DatabaseManager:
         """Get the database engine."""
         if self._engine is None:
             if self._custom_db_path:
+                # Legacy support: create SQLite engine from path
+                from spider_aggregation.storage.dialects import get_dialect
+
                 db_path = Path(self._custom_db_path)
                 db_path.parent.mkdir(parents=True, exist_ok=True)
-                url = f"sqlite:///{db_path}"
-                self._engine = create_engine(
-                    url,
-                    echo=False,
-                    connect_args={
-                        "check_same_thread": False,
-                        "timeout": 30,
-                    },
-                    poolclass=QueuePool,
-                    pool_size=5,
-                    max_overflow=10,
-                )
 
-                @event.listens_for(self._engine, "connect")
-                def set_sqlite_pragma(dbapi_conn, connection_record):
-                    cursor = dbapi_conn.cursor()
-                    cursor.execute("PRAGMA foreign_keys=ON")
-                    cursor.execute("PRAGMA journal_mode=WAL")
-                    cursor.close()
+                # Create a minimal config for SQLite
+                from spider_aggregation.config import DatabaseConfig
+
+                db_config = DatabaseConfig(path=str(db_path), echo=False)
+                dialect = get_dialect("sqlite")
+
+                url = dialect.build_url(db_config)
+                engine_kwargs = dialect.get_engine_kwargs(db_config)
+                self._engine = create_engine(url, **engine_kwargs)
+                dialect.setup_engine_events(self._engine)
+            elif self._custom_db_config:
+                # Use custom config
+                from spider_aggregation.storage.dialects import get_dialect
+
+                dialect = get_dialect(self._custom_db_config.type)
+                url = dialect.build_url(self._custom_db_config)
+                engine_kwargs = dialect.get_engine_kwargs(self._custom_db_config)
+                self._engine = create_engine(url, **engine_kwargs)
+                dialect.setup_engine_events(self._engine)
             else:
+                # Use global config
                 self._engine = get_engine()
 
         return self._engine

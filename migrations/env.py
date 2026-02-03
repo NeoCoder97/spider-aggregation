@@ -3,14 +3,14 @@
 This file is configured to work with MindWeaver's:
 - Pydantic-based configuration system
 - SQLAlchemy models in src/spider_aggregation/models/
-- SQLite database with custom PRAGMA settings
+- Multi-database dialect support (SQLite, PostgreSQL, MySQL)
 """
 
 import os
 import sys
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, event
 
 from alembic import context
 
@@ -30,18 +30,25 @@ if config.config_file_name is not None:
 
 # Get MindWeaver configuration
 mind_config = get_config()
+db_config = mind_config.database
+
+# Import dialect system for database URL construction
+from spider_aggregation.storage.dialects import get_dialect
+
+# Get appropriate dialect and build URL
+dialect = get_dialect(db_config.type)
+db_url = dialect.build_url(db_config)
 
 # Set database URL from MindWeaver config
 # This ensures migrations use the same database as the application
-db_path = mind_config.database.path
-if not db_path.startswith("sqlite:///") and not db_path.startswith("sqlite://"):
-    db_path = f"sqlite:///{db_path}"
-
-config.set_main_option("sqlalchemy.url", db_path)
+config.set_main_option("sqlalchemy.url", db_url)
 
 # Target metadata for autogenerate support
 # This includes all SQLAlchemy models: feeds, entries, categories, filter_rules
 target_metadata = Base.metadata
+
+# Get dialect-specific migration kwargs
+migration_kwargs = dialect.get_migration_kwargs()
 
 # Additional values from the config
 # my_important_option = config.get_main_option("my_important_option")
@@ -66,8 +73,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        # SQLite-specific settings
-        render_as_batch=True,  # Required for SQLite ALTER TABLE operations
+        **migration_kwargs,  # Dialect-specific settings (e.g., render_as_batch for SQLite)
     )
 
     with context.begin_transaction():
@@ -83,34 +89,25 @@ def run_migrations_online() -> None:
     """
     # Create engine configuration
     configuration = config.get_section(config.config_ini_section, {})
-    configuration["sqlalchemy.url"] = db_path
+    configuration["sqlalchemy.url"] = db_url
 
-    connectable = engine_from_config(
-        configuration,
-        prefix="sqlalchemy.",
-        poolclass=pool.StaticPool,  # StaticPool for SQLite
-        connect_args={
-            "check_same_thread": False,  # Required for SQLite with threading
-        },
-    )
+    # Get engine kwargs from dialect
+    engine_kwargs = dialect.get_engine_kwargs(db_config)
 
-    # Enable SQLite foreign keys and WAL mode
-    # This matches the application's database configuration
-    from sqlalchemy import event
+    # Remove echo from engine kwargs (Alembic has its own logging)
+    engine_kwargs.pop("echo", None)
 
-    @event.listens_for(connectable, "connect")
-    def set_sqlite_pragma(dbapi_conn, connection_record):
-        cursor = dbapi_conn.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.execute("PRAGMA journal_mode=WAL")
-        cursor.close()
+    # Create engine
+    connectable = engine_from_config(configuration, prefix="sqlalchemy.", **engine_kwargs)
+
+    # Set up dialect-specific events (e.g., SQLite PRAGMA)
+    dialect.setup_engine_events(connectable)
 
     with connectable.connect() as connection:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            # SQLite-specific settings
-            render_as_batch=True,  # Required for SQLite ALTER TABLE operations
+            **migration_kwargs,  # Dialect-specific settings
             # Compare type defaults (e.g., server_default values)
             compare_type=True,
             compare_server_default=True,

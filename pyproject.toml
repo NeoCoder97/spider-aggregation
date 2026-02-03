@@ -33,6 +33,15 @@ dev = [
 ai = [
     "zhipuai>=2.0.0",
 ]
+postgresql = [
+    "psycopg2-binary>=2.9.0",
+]
+mysql = [
+    "pymysql>=1.1.0",
+]
+all-dbs = [
+    "mind-weaver[postgresql,mysql]",
+]
 
 [project.scripts]
 mind-weaver = "spider_aggregation.web.__main__:main"

@@ -12,23 +12,92 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class DatabaseConfig(BaseSettings):
-    """Database configuration."""
+    """Database configuration.
+
+    Supports SQLite, PostgreSQL, and MySQL backends.
+    Configuration priority: type field > auto-detection > default (SQLite).
+
+    For SQLite:
+        - Only `path` is required
+        - Environment variable: DB_PATH
+
+    For PostgreSQL/MySQL:
+        - Set `type` to "postgresql" or "mysql"
+        - Set `host`, `database`, `user`, `password`
+        - Optional: `port`, `ssl_mode`
+        - Environment variables: DB_TYPE, DB_HOST, DB_DATABASE, DB_USER, DB_PASSWORD, etc.
+    """
 
     model_config = SettingsConfigDict(env_prefix="DB_")
 
-    # SQLite configuration
-    path: str = Field(default="data/spider_aggregation.db", description="Database file path")
-    echo: bool = Field(default=False, description="Echo SQL statements")
+    # Database type selection
+    type: str = Field(default="sqlite", description="Database type: sqlite, postgresql, mysql")
 
-    # Connection pool settings (for future PostgreSQL support)
-    pool_size: int = Field(default=5, ge=1, le=100)
-    max_overflow: int = Field(default=10, ge=0)
+    # SQLite configuration
+    path: str = Field(default="data/spider_aggregation.db", description="Database file path (SQLite)")
+
+    # PostgreSQL/MySQL configuration
+    host: str | None = Field(default=None, description="Database host (PostgreSQL/MySQL)")
+    port: int | None = Field(default=None, description="Database port (default: 5432 for PostgreSQL, 3306 for MySQL)")
+    database: str | None = Field(default=None, description="Database name (PostgreSQL/MySQL)")
+    user: str | None = Field(default=None, description="Database user (PostgreSQL/MySQL)")
+    password: str | None = Field(default=None, description="Database password (PostgreSQL/MySQL)")
+    ssl_mode: str | None = Field(default=None, description="SSL mode: prefer/require (PostgreSQL), preferred/required (MySQL)")
+
+    # Common settings
+    echo: bool = Field(default=False, description="Echo SQL statements")
+    pool_size: int = Field(default=5, ge=1, le=100, description="Connection pool size")
+    max_overflow: int = Field(default=10, ge=0, description="Max overflow connections")
+
+    @field_validator("type")
+    @classmethod
+    def normalize_type(cls, v: str) -> str:
+        """Normalize database type name."""
+        v = v.lower().strip()
+        if v == "postgres":
+            return "postgresql"
+        return v
+
+    @field_validator("type")
+    @classmethod
+    def validate_type(cls, v: str) -> str:
+        """Validate database type."""
+        valid_types = ["sqlite", "postgresql", "mysql"]
+        if v not in valid_types:
+            raise ValueError(f"Invalid database type: {v!r}. Must be one of {valid_types}")
+        return v
 
     @field_validator("path")
     @classmethod
     def ensure_directory_exists(cls, v: str) -> str:
         """Ensure the database directory exists."""
         Path(v).parent.mkdir(parents=True, exist_ok=True)
+        return v
+
+    @field_validator("port")
+    @classmethod
+    def validate_port(cls, v: int | None) -> int | None:
+        """Validate port number."""
+        if v is not None and not (1 <= v <= 65535):
+            raise ValueError("Port must be between 1 and 65535")
+        return v
+
+    @field_validator("ssl_mode")
+    @classmethod
+    def validate_ssl_mode(cls, v: str | None) -> str | None:
+        """Validate SSL mode."""
+        if v is None:
+            return None
+
+        v = v.lower()
+        valid_pg_modes = ["disable", "allow", "prefer", "require", "verify-ca", "verify-full"]
+        valid_mysql_modes = ["disabled", "preferred", "required", "verify_ca", "verify_identity"]
+
+        if v not in valid_pg_modes and v not in valid_mysql_modes:
+            raise ValueError(
+                f"Invalid ssl_mode: {v!r}. "
+                f"PostgreSQL: {valid_pg_modes}, MySQL: {valid_mysql_modes}"
+            )
         return v
 
 

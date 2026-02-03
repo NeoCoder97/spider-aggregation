@@ -2,8 +2,35 @@
 # This is the default configuration file
 
 database:
-  # Path to SQLite database file
+  # Database type: sqlite, postgresql, mysql
+  # Default: sqlite
+  type: "sqlite"
+
+  # SQLite configuration (default)
   path: "data/spider_aggregation.db"
+
+  # PostgreSQL configuration example
+  # type: "postgresql"
+  # host: "localhost"
+  # port: 5432
+  # database: "mindweaver"
+  # user: "mindweaver"
+  # password: "changeme"
+  # ssl_mode: "prefer"  # disable, allow, prefer, require, verify-ca, verify-full
+
+  # MySQL configuration example
+  # type: "mysql"
+  # host: "localhost"
+  # port: 3306
+  # database: "mindweaver"
+  # user: "mindweaver"
+  # password: "changeme"
+  # ssl_mode: "preferred"  # disabled, preferred, required, verify_ca, verify_identity
+
+  # Common settings
+  echo: false
+  pool_size: 5
+  max_overflow: 10
 
 fetcher:
   # HTTP timeout in seconds
