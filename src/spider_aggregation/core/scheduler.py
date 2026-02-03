@@ -15,7 +15,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy.orm import Session
 
 from spider_aggregation.config import get_config
-from spider_aggregation.core import FeedFetcher, FetchResult
+from spider_aggregation.core.fetcher import FeedFetcher, FetchResult
 from spider_aggregation.logger import get_logger
 from spider_aggregation.storage.repositories.feed_repo import FeedRepository
 

@@ -112,10 +112,12 @@ class FeedBlueprint(CRUDBlueprint):
             API response
         """
         from spider_aggregation.storage.database import DatabaseManager
-        from spider_aggregation.core.fetcher import FeedFetcher
-        from spider_aggregation.core.parser import ContentParser
-        from spider_aggregation.core.deduplicator import Deduplicator
-        from spider_aggregation.core.filter_engine import FilterEngine
+        from spider_aggregation.core.services import (
+            FetcherService,
+            ParserService,
+            DeduplicatorService,
+            FilterService,
+        )
 
         logger = get_logger(__name__)
         db_manager = DatabaseManager(self.db_path)
@@ -127,10 +129,11 @@ class FeedBlueprint(CRUDBlueprint):
             if not feed:
                 return api_response(success=False, error="未找到订阅源", status=404)
 
-            # Fetch and process feed
-            fetcher = FeedFetcher()
-            parser = ContentParser()
-            deduplicator = Deduplicator()
+            # Use Service Facades for all core operations
+            fetcher = FetcherService(session=session)
+            parser = ParserService()
+            deduplicator = DeduplicatorService(session=session)
+            filter_service = FilterService()
 
             from spider_aggregation.storage.repositories.entry_repo import EntryRepository
             from spider_aggregation.storage.repositories.filter_rule_repo import FilterRuleRepository
@@ -172,8 +175,7 @@ class FeedBlueprint(CRUDBlueprint):
                     continue
 
                 # Apply filter rules
-                filter_engine = FilterEngine()
-                filter_result = filter_engine.apply(parsed, filter_rule_repo)
+                filter_result = filter_service.apply(parsed, filter_rule_repo)
                 if not filter_result.allowed:
                     continue
 

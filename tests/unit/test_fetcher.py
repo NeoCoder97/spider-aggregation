@@ -8,7 +8,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from spider_aggregation.core import FeedFetcher, FetchResult, FetchStats, create_fetcher
+from spider_aggregation.core.fetcher import FeedFetcher, FetchResult, FetchStats, create_fetcher
 from spider_aggregation.models import FeedModel
 from spider_aggregation.storage.repositories.feed_repo import FeedRepository
 

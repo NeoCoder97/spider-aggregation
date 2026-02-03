@@ -182,7 +182,7 @@ class EntryBlueprint(CRUDBlueprint):
             API response with number of entries updated
         """
         from spider_aggregation.storage.database import DatabaseManager
-        from spider_aggregation.core.content_fetcher import ContentFetcher
+        from spider_aggregation.core.services import ContentService
 
         data = request.get_json()
         entry_ids = data.get("entry_ids", [])
@@ -191,7 +191,7 @@ class EntryBlueprint(CRUDBlueprint):
             return api_response(success=False, error="entry_ids为必填项", status=400)
 
         db_manager = DatabaseManager(self.db_path)
-        content_fetcher = ContentFetcher()
+        content_service = ContentService()
 
         with db_manager.session() as session:
             repo = self._get_repository(session)
@@ -200,7 +200,7 @@ class EntryBlueprint(CRUDBlueprint):
             for entry_id in entry_ids:
                 entry = repo.get_by_id(entry_id)
                 if entry and entry.link:
-                    result = content_fetcher.fetch_content(entry.link)
+                    result = content_service.fetch_content(entry.link)
                     if result.success and result.content:
                         # Update entry with fetched content
                         from spider_aggregation.models.entry import EntryUpdate
@@ -224,7 +224,7 @@ class EntryBlueprint(CRUDBlueprint):
             API response with number of entries updated
         """
         from spider_aggregation.storage.database import DatabaseManager
-        from spider_aggregation.core.keyword_extractor import KeywordExtractor
+        from spider_aggregation.core.services import KeywordService
 
         data = request.get_json()
         entry_ids = data.get("entry_ids", [])
@@ -233,7 +233,7 @@ class EntryBlueprint(CRUDBlueprint):
             return api_response(success=False, error="entry_ids为必填项", status=400)
 
         db_manager = DatabaseManager(self.db_path)
-        keyword_extractor = KeywordExtractor()
+        keyword_service = KeywordService()
 
         with db_manager.session() as session:
             repo = self._get_repository(session)
@@ -244,7 +244,7 @@ class EntryBlueprint(CRUDBlueprint):
                 if entry:
                     # Extract keywords from title and content
                     text = f"{entry.title or ''} {entry.content or ''}"
-                    keywords = keyword_extractor.extract(text, max_keywords=10)
+                    keywords = keyword_service.extract(text)
 
                     if keywords:
                         # Update entry with keywords (store in tags for now)
@@ -270,7 +270,7 @@ class EntryBlueprint(CRUDBlueprint):
             API response with number of entries updated
         """
         from spider_aggregation.storage.database import DatabaseManager
-        from spider_aggregation.core.summarizer import Summarizer
+        from spider_aggregation.core.services import SummarizerService
 
         data = request.get_json()
         entry_ids = data.get("entry_ids", [])
@@ -279,7 +279,7 @@ class EntryBlueprint(CRUDBlueprint):
             return api_response(success=False, error="entry_ids为必填项", status=400)
 
         db_manager = DatabaseManager(self.db_path)
-        summarizer = Summarizer()
+        summarizer_service = SummarizerService()
 
         with db_manager.session() as session:
             repo = self._get_repository(session)
@@ -290,7 +290,7 @@ class EntryBlueprint(CRUDBlueprint):
                 if entry and (entry.content or entry.summary):
                     # Generate summary
                     text = entry.content or entry.summary
-                    summary = summarizer.summarize(text, method="extractive")
+                    summary = summarizer_service.summarize(text)
 
                     if summary:
                         from spider_aggregation.models.entry import EntryUpdate

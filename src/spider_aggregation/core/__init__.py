@@ -1,97 +1,122 @@
-"""Core business logic modules for spider aggregation."""
+"""Core business logic modules for spider aggregation.
 
-# Centralized factory functions for consistent dependency injection
-from spider_aggregation.core.factories import (
-    create_content_fetcher,
-    create_deduplicator,
-    create_fetcher,
-    create_filter_engine,
-    create_keyword_extractor,
-    create_parser,
-    create_scheduler,
-    create_summarizer,
+IMPORTANT: Module Boundary Rules
+=================================
+
+External code (web layer, scripts, etc.) MUST ONLY use Service Facades.
+Direct import of core module classes is FORBIDDEN.
+
+✅ CORRECT - Use Service Facades:
+    from spider_aggregation.core.services import (
+        FetcherService,
+        ParserService,
+        DeduplicatorService,
+        FilterService,
+        SchedulerService,
+    )
+
+    fetcher = FetcherService()
+    result = fetcher.fetch_feed(url)
+
+❌ WRONG - Direct class import (FORBIDDEN):
+    from spider_aggregation.core.fetcher import FeedFetcher  # VIOLATION
+    from spider_aggregation.core.parser import ContentParser   # VIOLATION
+
+Available Services:
+    - FetcherService: HTTP feed fetching
+    - ParserService: Content parsing
+    - DeduplicatorService: Duplicate detection
+    - FilterService: Content filtering
+    - SchedulerService: Task scheduling
+    - ContentService: Full content fetching
+    - KeywordService: Keyword extraction
+    - SummarizerService: Content summarization
+"""
+
+# Service Facades (ONLY public interface for external code)
+from spider_aggregation.core.services import (
+    ContentService,
+    DeduplicatorService,
+    FetcherService,
+    FilterService,
+    KeywordService,
+    ParserService,
+    SchedulerService,
+    SummarizerService,
+    create_content_service,
+    create_deduplicator_service,
+    create_fetcher_service,
+    create_filter_service,
+    create_keyword_service,
+    create_parser_service,
+    create_scheduler_service,
+    create_summarizer_service,
 )
 
-# Legacy individual factory functions (still available for backward compatibility)
-from spider_aggregation.core.deduplicator import (
-    DedupResult,
-    DedupStrategy,
-    Deduplicator,
-    create_deduplicator as _legacy_create_deduplicator,
-)
-from spider_aggregation.core.fetcher import (
-    FeedFetcher,
-    FetchResult,
-    FetchStats,
-    create_fetcher as _legacy_create_fetcher,
-)
-from spider_aggregation.core.parser import (
-    ContentParser,
-    FeedMetadataParser,
-    create_parser as _legacy_create_parser,
-)
-from spider_aggregation.core.scheduler import (
-    FeedScheduler,
-    JobStatus,
-    SchedulerStats,
-    create_scheduler as _legacy_create_scheduler,
-)
+# Result types (allowed for type hints and return values)
+from spider_aggregation.core.fetcher import FetchResult, FetchStats
+from spider_aggregation.core.deduplicator import DedupResult
+from spider_aggregation.core.filter_engine import FilterResult
+from spider_aggregation.core.content_fetcher import ContentFetchResult
+from spider_aggregation.core.summarizer import SummaryResult
+
+# Enum types (allowed for configuration)
+from spider_aggregation.core.deduplicator import DedupStrategy
+from spider_aggregation.core.scheduler import JobStatus
 
 __all__ = [
-    # Factory functions (recommended for creating components)
-    "create_fetcher",
-    "create_parser",
-    "create_deduplicator",
-    "create_filter_engine",
-    "create_keyword_extractor",
-    "create_content_fetcher",
-    "create_summarizer",
-    "create_scheduler",
-    # Core classes
-    "FeedFetcher",
+    # Service Facades (USE THESE)
+    "FetcherService",
+    "ParserService",
+    "DeduplicatorService",
+    "FilterService",
+    "SchedulerService",
+    "ContentService",
+    "KeywordService",
+    "SummarizerService",
+    # Service factory functions
+    "create_fetcher_service",
+    "create_parser_service",
+    "create_deduplicator_service",
+    "create_filter_service",
+    "create_scheduler_service",
+    "create_content_service",
+    "create_keyword_service",
+    "create_summarizer_service",
+    # Result types (for type hints)
     "FetchResult",
     "FetchStats",
-    "ContentParser",
-    "FeedMetadataParser",
-    "Deduplicator",
-    "DedupStrategy",
     "DedupResult",
-    "FeedScheduler",
-    "JobStatus",
-    "SchedulerStats",
-]
-
-# Phase 2 exports
-from spider_aggregation.core.filter_engine import (
-    FilterEngine,
-    FilterResult,
-    create_filter_engine as _legacy_create_filter_engine,
-)
-from spider_aggregation.core.content_fetcher import (
-    ContentFetcher,
-    ContentFetchResult,
-    create_content_fetcher as _legacy_create_content_fetcher,
-)
-from spider_aggregation.core.keyword_extractor import (
-    KeywordExtractor,
-    create_keyword_extractor as _legacy_create_keyword_extractor,
-)
-from spider_aggregation.core.summarizer import (
-    Summarizer,
-    ExtractiveSummarizer,
-    AISummarizer,
-    SummaryResult,
-    create_summarizer as _legacy_create_summarizer,
-)
-
-__all__ += [
-    "FilterEngine",
     "FilterResult",
-    "ContentFetcher",
     "ContentFetchResult",
-    "KeywordExtractor",
-    "Summarizer",
-    "ExtractiveSummarizer",
-    "AISummarizer",
     "SummaryResult",
+    # Enum types (for configuration)
+    "DedupStrategy",
+    "JobStatus",
 ]
+
+
+# Module boundary enforcement
+# This helps catch violations at development time
+_forbidden_imports = {
+    "FeedFetcher": "Use FetcherService instead",
+    "ContentParser": "Use ParserService instead",
+    "FeedMetadataParser": "Use ParserService instead",
+    "Deduplicator": "Use DeduplicatorService instead",
+    "FilterEngine": "Use FilterService instead",
+    "FeedScheduler": "Use SchedulerService instead",
+    "ContentFetcher": "Use ContentService instead",
+    "KeywordExtractor": "Use KeywordService instead",
+    "Summarizer": "Use SummarizerService instead",
+}
+
+
+def __getattr__(name: str):
+    """Intercept forbidden imports and provide helpful error messages."""
+    if name in _forbidden_imports:
+        raise ImportError(
+            f"Direct import of '{name}' is forbidden. "
+            f"{_forbidden_imports[name]}. "
+            f"Use Service Facades from spider_aggregation.core.services instead."
+        )
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

@@ -354,7 +354,7 @@ def create_app(
         global _scheduler_instance
 
         if _scheduler_instance is None:
-            from spider_aggregation.core import create_scheduler
+            from spider_aggregation.core.scheduler import create_scheduler
 
             with _scheduler_lock:
                 if _scheduler_instance is None:

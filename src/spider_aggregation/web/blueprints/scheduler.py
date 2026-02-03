@@ -207,10 +207,12 @@ class SchedulerBlueprint:
             API response with fetch results
         """
         from spider_aggregation.storage.database import DatabaseManager
-        from spider_aggregation.core.fetcher import FeedFetcher
-        from spider_aggregation.core.parser import ContentParser
-        from spider_aggregation.core.deduplicator import Deduplicator
-        from spider_aggregation.core.filter_engine import FilterEngine
+        from spider_aggregation.core.services import (
+            FetcherService,
+            ParserService,
+            DeduplicatorService,
+            FilterService,
+        )
 
         logger = get_logger(__name__)
         db_manager = DatabaseManager(self.db_path)
@@ -224,10 +226,11 @@ class SchedulerBlueprint:
             entry_repo = EntryRepository(session)
             filter_rule_repo = FilterRuleRepository(session)
 
-            fetcher = FeedFetcher()
-            parser = ContentParser()
-            deduplicator = Deduplicator()
-            filter_engine = FilterEngine()
+            # Use Service Facades for all core operations
+            fetcher = FetcherService(session=session)
+            parser = ParserService()
+            deduplicator = DeduplicatorService(session=session)
+            filter_service = FilterService()
 
             # Get feeds to fetch
             feeds = feed_repo.get_feeds_to_fetch()
@@ -277,7 +280,7 @@ class SchedulerBlueprint:
                             continue
 
                         # Apply filter rules
-                        filter_result = filter_engine.apply(parsed, filter_rule_repo)
+                        filter_result = filter_service.apply(parsed, filter_rule_repo)
                         if not filter_result.allowed:
                             continue
 

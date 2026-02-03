@@ -7,14 +7,9 @@ the complete fetch → parse → dedup → store pipeline.
 import pytest
 from sqlalchemy.orm import Session
 
-from spider_aggregation.core import (
-    ContentParser,
-    Deduplicator,
-    FeedFetcher,
-    create_deduplicator,
-    create_fetcher,
-    create_parser,
-)
+from spider_aggregation.core.fetcher import FeedFetcher, create_fetcher
+from spider_aggregation.core.parser import ContentParser, create_parser
+from spider_aggregation.core.deduplicator import Deduplicator, create_deduplicator
 from spider_aggregation.storage.repositories.feed_repo import FeedRepository
 from spider_aggregation.storage.repositories.entry_repo import EntryRepository
 from spider_aggregation.storage.database import DatabaseManager
@@ -159,7 +154,7 @@ class TestRealRSSFeedIntegration:
         parser = create_parser()
 
         # Create a mock feed for testing
-        from spider_aggregation.core import FetchResult
+        from spider_aggregation.core.fetcher import FetchResult
 
         # Actually fetch the RSS
         try:

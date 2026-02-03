@@ -6,13 +6,13 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 from sqlalchemy.orm import Session
 
-from spider_aggregation.core import (
-    FetchResult,
+from spider_aggregation.core.scheduler import (
     FeedScheduler,
     JobStatus,
     SchedulerStats,
     create_scheduler,
 )
+from spider_aggregation.core.fetcher import FetchResult
 
 
 class TestJobStatus:

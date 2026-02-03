@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from spider_aggregation.core import (
+from spider_aggregation.core.deduplicator import (
     DedupResult,
     DedupStrategy,
     Deduplicator,

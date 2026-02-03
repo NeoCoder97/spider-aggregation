@@ -3,7 +3,7 @@
 import pytest
 from datetime import datetime
 
-from spider_aggregation.core import ContentParser, FeedMetadataParser, create_parser
+from spider_aggregation.core.parser import ContentParser, FeedMetadataParser, create_parser
 
 
 class TestContentParser:
