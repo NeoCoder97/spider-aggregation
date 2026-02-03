@@ -234,7 +234,10 @@ class ParserService:
         Returns:
             Parsed entry dict with normalized data
         """
-        return self._parser.parse_entry(entry_data, feed_id=feed_id)
+        parsed = self._parser.parse_entry(entry_data)
+        # Add feed_id to the parsed result
+        parsed["feed_id"] = feed_id
+        return parsed
 
     def parse_feed_metadata(self, feed_data: dict, url: str) -> "FeedMetadata":
         """Parse feed metadata from feedparser result.
