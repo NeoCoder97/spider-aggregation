@@ -192,21 +192,25 @@ class EntryBlueprint(CRUDBlueprint):
 
         db_manager = DatabaseManager(self.db_path)
         content_service = ContentService()
+        logger = get_logger(__name__)
 
         with db_manager.session() as session:
             repo = self._get_repository(session)
             updated_count = 0
 
             for entry_id in entry_ids:
-                entry = repo.get_by_id(entry_id)
-                if entry and entry.link:
-                    result = content_service.fetch_content(entry.link)
-                    if result.success and result.content:
-                        # Update entry with fetched content
-                        from spider_aggregation.models.entry import EntryUpdate
-                        update_data = EntryUpdate(content=result.content)
-                        repo.update(entry, update_data)
-                        updated_count += 1
+                try:
+                    entry = repo.get_by_id(entry_id)
+                    if entry and entry.link:
+                        result = content_service.fetch_content(entry.link)
+                        if result.success and result.content:
+                            # Update entry with fetched content
+                            from spider_aggregation.models.entry import EntryUpdate
+                            update_data = EntryUpdate(content=result.content)
+                            repo.update(entry, update_data)
+                            updated_count += 1
+                except Exception as e:
+                    logger.warning(f"Failed to fetch content for entry {entry_id}: {e}")
 
         return api_response(
             success=True,

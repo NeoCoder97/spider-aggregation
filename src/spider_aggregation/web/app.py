@@ -391,7 +391,8 @@ def create_app(
     @app.errorhandler(500)
     def server_error(e):
         """Handle 500 errors."""
-        logger.error(f"Server error: {e}")
+        import traceback
+        logger.error(f"Server error: {e}\n{traceback.format_exc()}")
         return render_template("500.html"), 500
 
     logger.info(f"Web app created with database: {db_path}")
