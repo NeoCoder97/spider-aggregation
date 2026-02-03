@@ -214,7 +214,7 @@ class EntryBlueprint(CRUDBlueprint):
 
         return api_response(
             success=True,
-            data={"updated_count": updated_count},
+            data={"success": updated_count, "failed": len(entry_ids) - updated_count},
             message=f"成功获取 {updated_count} 条条目的完整内容"
         )
 
@@ -260,7 +260,7 @@ class EntryBlueprint(CRUDBlueprint):
 
         return api_response(
             success=True,
-            data={"updated_count": updated_count},
+            data={"success": updated_count, "failed": len(entry_ids) - updated_count},
             message=f"成功为 {updated_count} 条条目提取关键词"
         )
 
@@ -304,7 +304,7 @@ class EntryBlueprint(CRUDBlueprint):
 
         return api_response(
             success=True,
-            data={"updated_count": updated_count},
+            data={"success": updated_count, "failed": len(entry_ids) - updated_count},
             message=f"成功为 {updated_count} 条条目生成摘要"
         )
 
