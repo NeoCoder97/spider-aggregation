@@ -99,7 +99,7 @@ class SchedulerBlueprint:
                 total_feeds = feed_repo.count()
                 enabled_feeds = feed_repo.count(enabled_only=True)
 
-            jobs = scheduler.get_jobs()
+            jobs = scheduler.get_all_jobs()
 
             return api_response(
                 success=True,
@@ -109,7 +109,7 @@ class SchedulerBlueprint:
                     "enabled_feeds_count": enabled_feeds,
                     "jobs": [
                         {
-                            "id": job.id,
+                            "id": job.job_id,
                             "name": job.name,
                             "next_run_time": job.next_run_time.isoformat() if job.next_run_time else None,
                         }
