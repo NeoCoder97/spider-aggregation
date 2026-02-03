@@ -122,6 +122,144 @@ class FeedFetcher:
 
         self.stats = FetchStats()
 
+    def fetch_url(
+        self,
+        url: str,
+        feed_id: Optional[int] = None,
+        etag: Optional[str] = None,
+        last_modified: Optional[str] = None,
+        max_entries: Optional[int] = None,
+    ) -> FetchResult:
+        """Fetch a feed directly from URL without FeedModel.
+
+        Args:
+            url: Feed URL to fetch
+            feed_id: Optional feed ID for the result
+            etag: Optional ETag for conditional request
+            last_modified: Optional Last-Modified for conditional request
+            max_entries: Maximum entries to return (None for unlimited)
+
+        Returns:
+            FetchResult with entries or error
+        """
+        start_time = time.time()
+        feed_id = feed_id or 0
+
+        logger.debug(f"Fetching URL: {url}")
+
+        last_error = None
+        http_status = None
+        response_etag = None
+        response_last_modified = None
+        entries = []
+
+        for attempt in range(self.max_retries + 1):
+            try:
+                # Fetch with HTTP client
+                http_result = self._fetch_http(
+                    url,
+                    etag=etag if not attempt else None,
+                    last_modified=last_modified if not attempt else None,
+                )
+
+                http_status = http_result.status_code
+                response_etag = http_result.headers.get("ETag")
+                response_last_modified = http_result.headers.get("Last-Modified")
+
+                # Check for Not Modified
+                if http_status == 304:
+                    logger.debug(f"Feed not modified: {url}")
+                    return FetchResult(
+                        success=True,
+                        feed_id=feed_id,
+                        feed_url=url,
+                        entries_count=0,
+                        fetch_time_seconds=time.time() - start_time,
+                        http_status=http_status,
+                        etag=response_etag,
+                        last_modified=response_last_modified,
+                    )
+
+                # Parse with feedparser
+                parsed = feedparser.parse(http_result.content)
+                entries = parsed.get("entries", [])
+
+                # Apply max entries limit
+                if max_entries and max_entries > 0 and len(entries) > max_entries:
+                    original_count = len(entries)
+                    entries = entries[:max_entries]
+                    logger.info(f"Limited {url} to {len(entries)} entries (original: {original_count})")
+
+                # Get feed info
+                feed_info = {
+                    "title": parsed.feed.get("title"),
+                    "link": parsed.feed.get("link"),
+                    "description": parsed.feed.get("description"),
+                }
+
+                fetch_time = time.time() - start_time
+
+                logger.info(f"Fetched {len(entries)} entries from {url} in {fetch_time:.2f}s")
+
+                result = FetchResult(
+                    success=True,
+                    feed_id=feed_id,
+                    feed_url=url,
+                    entries_count=len(entries),
+                    entries=entries,
+                    fetch_time_seconds=fetch_time,
+                    http_status=http_status,
+                    etag=response_etag,
+                    last_modified=response_last_modified,
+                    feed_data=parsed,
+                    feed_info=feed_info,
+                )
+
+                self.stats.add_result(result)
+                return result
+
+            except httpx.TimeoutException as e:
+                last_error = f"Timeout: {str(e)}"
+                logger.warning(f"Timeout fetching {url} (attempt {attempt + 1}/{self.max_retries + 1})")
+
+            except httpx.HTTPStatusError as e:
+                last_error = f"HTTP {e.response.status_code}: {str(e)}"
+                http_status = e.response.status_code
+
+                # Don't retry client errors (4xx)
+                if 400 <= e.response.status_code < 500:
+                    logger.error(f"Client error fetching {url}: {last_error}")
+                    break
+
+                logger.warning(f"HTTP error fetching {url} (attempt {attempt + 1})")
+
+            except httpx.RequestError as e:
+                last_error = f"Request error: {str(e)}"
+                logger.warning(f"Network error fetching {url} (attempt {attempt + 1})")
+
+            except Exception as e:
+                last_error = f"Unexpected error: {type(e).__name__}: {str(e)}"
+                logger.error(f"Error fetching {url}: {last_error}")
+                break
+
+            # Retry delay
+            if attempt < self.max_retries:
+                time.sleep(self.retry_delay_seconds * (attempt + 1))
+
+        # All retries failed
+        fetch_time = time.time() - start_time
+        result = FetchResult(
+            success=False,
+            feed_id=feed_id,
+            feed_url=url,
+            fetch_time_seconds=fetch_time,
+            error=last_error or "Unknown error",
+            http_status=http_status,
+        )
+
+        self.stats.add_result(result)
+        return result
+
     def fetch_feed(self, feed: FeedModel) -> FetchResult:
         """Fetch a single feed.
 
