@@ -3,7 +3,6 @@ Flask application for mind-weaver web UI.
 """
 
 import json
-import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional, Any
@@ -22,12 +21,12 @@ from spider_aggregation.web.serializers import (
     filter_rule_to_dict,
     category_to_dict,
 )
+from spider_aggregation.web.scheduler_manager import (
+    init_scheduler_manager,
+    get_scheduler_manager,
+)
 
 logger = get_logger(__name__)
-
-# Global scheduler instance
-_scheduler_instance = None
-_scheduler_lock = threading.Lock()
 
 
 def create_app(
@@ -134,7 +133,6 @@ def create_app(
         EntryBlueprint,
         SchedulerBlueprint,
         SystemBlueprint,
-        set_scheduler,
     )
 
     # Create blueprints
@@ -351,33 +349,20 @@ def create_app(
     @app.before_request
     def initialize_scheduler():
         """Initialize scheduler before first request if needed."""
-        global _scheduler_instance
+        manager = get_scheduler_manager()
 
-        if _scheduler_instance is None:
-            from spider_aggregation.core.scheduler import create_scheduler
+        if manager.get_scheduler() is None:
+            db_manager = DatabaseManager(db_path)
+            try:
+                manager.initialize_scheduler(
+                    db_manager=db_manager,
+                    max_workers=3,
+                )
+            except Exception as e:
+                logger.error(f"Failed to initialize scheduler: {e}")
 
-            with _scheduler_lock:
-                if _scheduler_instance is None:
-                    db_manager = DatabaseManager(db_path)
-                    try:
-                        _scheduler_instance = create_scheduler(
-                            session=None, max_workers=3, db_manager=db_manager
-                        )
-                        # Set scheduler reference for blueprints
-                        set_scheduler(_scheduler_instance)
-                    except Exception as e:
-                        logger.error(f"Failed to initialize scheduler: {e}")
-
-    def get_scheduler_instance():
-        """Get the global scheduler instance.
-
-        Returns:
-            FeedScheduler instance or None
-        """
-        return _scheduler_instance
-
-    # Store scheduler getter in app config for blueprints to access
-    app.config["get_scheduler"] = get_scheduler_instance
+    # Initialize scheduler manager with the app
+    init_scheduler_manager(app)
 
     # ========================================================================
     # Error Handlers

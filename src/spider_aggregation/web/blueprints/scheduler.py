@@ -4,37 +4,11 @@ Scheduler API blueprint.
 This module contains all scheduler management API endpoints.
 """
 
-import threading
 from flask import request
+
 from spider_aggregation.web.serializers import api_response
+from spider_aggregation.web.scheduler_manager import get_scheduler_manager
 from spider_aggregation.logger import get_logger
-
-
-# Global scheduler instance reference
-# This will be set by the app.py module
-_scheduler_instance = None
-_scheduler_lock = threading.Lock()
-
-
-def get_scheduler():
-    """Get the global scheduler instance.
-
-    Returns:
-        FeedScheduler instance or None
-    """
-    global _scheduler_instance
-    return _scheduler_instance
-
-
-def set_scheduler(scheduler):
-    """Set the global scheduler instance.
-
-    Args:
-        scheduler: FeedScheduler instance
-    """
-    global _scheduler_instance
-    with _scheduler_lock:
-        _scheduler_instance = scheduler
 
 
 class SchedulerBlueprint:
@@ -87,7 +61,8 @@ class SchedulerBlueprint:
         """
         from spider_aggregation.storage.database import DatabaseManager
 
-        scheduler = get_scheduler()
+        manager = get_scheduler_manager()
+        scheduler = manager.get_scheduler()
 
         if scheduler:
             from spider_aggregation.storage.repositories.feed_repo import FeedRepository
@@ -144,33 +119,25 @@ class SchedulerBlueprint:
             API response
         """
         logger = get_logger(__name__)
-        scheduler = get_scheduler()
+        manager = get_scheduler_manager()
 
-        if not scheduler:
+        if not manager.get_scheduler():
             return api_response(
                 success=False,
                 error="调度器未初始化",
                 status=500
             )
 
-        if scheduler.is_running():
-            return api_response(
-                success=True,
-                message="调度器已在运行"
-            )
-
-        try:
-            scheduler.start()
+        if manager.start_scheduler():
             logger.info("Scheduler started via API")
             return api_response(
                 success=True,
                 message="调度器启动成功"
             )
-        except Exception as e:
-            logger.error(f"Error starting scheduler: {e}")
+        else:
             return api_response(
                 success=False,
-                error=str(e),
+                error="调度器启动失败",
                 status=500
             )
 
@@ -181,33 +148,25 @@ class SchedulerBlueprint:
             API response
         """
         logger = get_logger(__name__)
-        scheduler = get_scheduler()
+        manager = get_scheduler_manager()
 
-        if not scheduler:
+        if not manager.get_scheduler():
             return api_response(
                 success=False,
                 error="调度器未初始化",
                 status=500
             )
 
-        if not scheduler.is_running():
-            return api_response(
-                success=True,
-                message="调度器未运行"
-            )
-
-        try:
-            scheduler.stop(wait=False)
+        if manager.stop_scheduler(wait=False):
             logger.info("Scheduler stopped via API")
             return api_response(
                 success=True,
                 message="调度器停止成功"
             )
-        except Exception as e:
-            logger.error(f"Error stopping scheduler: {e}")
+        else:
             return api_response(
                 success=False,
-                error=str(e),
+                error="调度器停止失败",
                 status=500
             )
 
@@ -340,3 +299,29 @@ class SchedulerBlueprint:
             },
             message=f"成功获取 {len(feeds)} 个订阅源，共创建 {total_entries_created} 条新内容"
         )
+
+
+# Backward compatibility: these functions are no-ops now
+# The scheduler is managed by SchedulerManager instead
+
+def get_scheduler():
+    """Get the scheduler instance (deprecated).
+
+    Use get_scheduler_manager().get_scheduler() instead.
+
+    Returns:
+        FeedScheduler instance or None
+    """
+    return get_scheduler_manager().get_scheduler()
+
+
+def set_scheduler(scheduler):
+    """Set the scheduler instance (deprecated).
+
+    The scheduler is now managed by SchedulerManager.
+
+    Args:
+        scheduler: FeedScheduler instance (ignored)
+    """
+    # No-op: scheduler is managed by SchedulerManager
+    pass

@@ -42,7 +42,11 @@ class FilterResult:
 
 
 class FilterEngine:
-    """Engine for applying filter rules to entries."""
+    """Engine for applying filter rules to entries.
+
+    Supports both EntryModel objects and any object with the required attributes
+    (title, content, summary, link, tags, language).
+    """
 
     def __init__(self, rules: list[FilterRuleModel], cache_size: int = 100) -> None:
         """Initialize filter engine with rules.
