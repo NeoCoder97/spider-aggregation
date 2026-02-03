@@ -32,7 +32,7 @@
                 <strong>导出文章</strong>
                 <p class="form-help">下载所有文章为 JSON 文件</p>
             </div>
-            <a href="{{ url_for('api_export_entries') }}" class="btn btn-secondary">下载文章</a>
+            <a href="{{ url_for('system._export_entries') }}" class="btn btn-secondary">下载文章</a>
         </div>
 
         <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -40,7 +40,7 @@
                 <strong>导出订阅源</strong>
                 <p class="form-help">下载所有订阅源为 JSON 文件</p>
             </div>
-            <a href="{{ url_for('api_export_feeds') }}" class="btn btn-secondary">下载订阅源</a>
+            <a href="{{ url_for('system._export_feeds') }}" class="btn btn-secondary">下载订阅源</a>
         </div>
     </div>
 </div>
