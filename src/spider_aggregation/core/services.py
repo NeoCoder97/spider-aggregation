@@ -451,7 +451,7 @@ class ContentService:
         Returns:
             ContentFetchResult with full content
         """
-        return self._fetcher.fetch_content(url)
+        return self._fetcher.fetch(url)
 
 
 class KeywordService:
