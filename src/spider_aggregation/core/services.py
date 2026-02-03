@@ -234,9 +234,26 @@ class ParserService:
         Returns:
             Parsed entry dict with normalized data
         """
+        from spider_aggregation.utils.hash_utils import (
+            compute_title_hash,
+            compute_link_hash,
+            compute_content_hash,
+        )
+
         parsed = self._parser.parse_entry(entry_data)
         # Add feed_id to the parsed result
         parsed["feed_id"] = feed_id
+
+        # Add hash fields for deduplication
+        parsed["title_hash"] = compute_title_hash(parsed.get("title")) or ""
+        parsed["link_hash"] = compute_link_hash(parsed.get("link")) or ""
+        parsed["content_hash"] = compute_content_hash(parsed.get("content"))
+
+        # Convert tags list to JSON string for database storage
+        if "tags" in parsed and parsed["tags"]:
+            import json
+            parsed["tags"] = json.dumps(parsed["tags"])
+
         return parsed
 
     def parse_feed_metadata(self, feed_data: dict, url: str) -> "FeedMetadata":
