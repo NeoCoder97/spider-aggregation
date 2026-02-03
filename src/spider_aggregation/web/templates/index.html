@@ -104,11 +104,48 @@
     <a href="?page={{ page - 1 }}&feed_id={{ feed_id or '' }}&q={{ search_query }}" class="btn">上一页</a>
     {% endif %}
 
-    <span class="pagination-info">第 {{ page }} 页</span>
+    <span class="pagination-info">
+        第 {{ page }} / {{ total // page_size + (1 if total % page_size else 0) }} 页
+        (共 {{ total }} 条)
+    </span>
+
+    {% set total_pages = total // page_size + (1 if total % page_size else 0) %}
+    {% set max_pages = 7 %}
+    {% set start_page = [1, page - 3]|max %}
+    {% set end_page = [total_pages, page + 3]|min %}
+
+    {% if start_page > 1 %}
+    <a href="?page=1&feed_id={{ feed_id or '' }}&q={{ search_query }}" class="btn btn-small">1</a>
+    {% if start_page > 2 %}
+    <span class="pagination-ellipsis">...</span>
+    {% endif %}
+    {% endif %}
+
+    {% for p in range(start_page, end_page + 1) %}
+    {% if p == page %}
+    <span class="btn btn-small btn-primary">{{ p }}</span>
+    {% else %}
+    <a href="?page={{ p }}&feed_id={{ feed_id or '' }}&q={{ search_query }}" class="btn btn-small">{{ p }}</a>
+    {% endif %}
+    {% endfor %}
+
+    {% if end_page < total_pages %}
+    {% if end_page < total_pages - 1 %}
+    <span class="pagination-ellipsis">...</span>
+    {% endif %}
+    <a href="?page={{ total_pages }}&feed_id={{ feed_id or '' }}&q={{ search_query }}" class="btn btn-small">{{ total_pages }}</a>
+    {% endif %}
 
     {% if page * page_size < total %}
     <a href="?page={{ page + 1 }}&feed_id={{ feed_id or '' }}&q={{ search_query }}" class="btn">下一页</a>
     {% endif %}
+
+    <form method="get" class="pagination-jump" style="display: inline; margin-left: 1rem;">
+        <input type="hidden" name="feed_id" value="{{ feed_id or '' }}">
+        <input type="hidden" name="q" value="{{ search_query }}">
+        <input type="number" name="page" min="1" max="{{ total // page_size + (1 if total % page_size else 0) }}" placeholder="页码" class="form-control" style="width: 60px; display: inline;">
+        <button type="submit" class="btn btn-small">跳转</button>
+    </form>
 </div>
 {% endif %}
 {% endblock %}

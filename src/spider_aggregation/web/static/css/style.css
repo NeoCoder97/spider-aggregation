@@ -353,6 +353,17 @@ body {
     color: var(--text-muted);
 }
 
+.pagination-ellipsis {
+    color: var(--text-muted);
+    padding: 0 0.25rem;
+}
+
+.pagination-jump {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
 /* Empty State */
 .empty-state {
     text-align: center;
